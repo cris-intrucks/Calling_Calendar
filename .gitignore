@@ -1,0 +1,21 @@
+# Secrets - nunca deben subirse al repo
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (por si el dashboard usa tooling)
+node_modules/
+dist/
+.DS_Store
+
+# AWS SAM / build artifacts
+.aws-sam/

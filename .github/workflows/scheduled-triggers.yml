@@ -1,0 +1,46 @@
+name: Callback Protocol - Scheduled Triggers
+
+on:
+  schedule:
+    # GitHub Actions no garantiza el minuto exacto, pero corre cada 5-10 min
+    # de forma confiable -- suficiente para este caso de uso.
+    - cron: '*/5 * * * *'   # cada 5 min: intento 1 + verificación
+    - cron: '0 * * * *'     # cada hora: intento 2 (revisa ventana de 2h) + renovación
+  workflow_dispatch: {}       # permite dispararlo manualmente desde GitHub para pruebas
+
+jobs:
+  reminder-attempt1:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Llamar /api/cron/reminder-attempt1
+        run: |
+          curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/reminder-attempt1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+  verify-calls:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Llamar /api/cron/verify-calls
+        run: |
+          curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/verify-calls" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+  reminder-attempt2:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Llamar /api/cron/reminder-attempt2
+        run: |
+          curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/reminder-attempt2" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+  renew-subscription:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Llamar /api/cron/renew-subscription
+        run: |
+          curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/renew-subscription" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

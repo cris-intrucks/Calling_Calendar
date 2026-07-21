@@ -1,0 +1,9 @@
+{
+  "name": "retencion-callback-intrucks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Protocolo de callback automatizado para llamadas perdidas de Retención (RingCentral + Supabase + Vercel)",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
