@@ -19,3 +19,5 @@ dist/
 
 # AWS SAM / build artifacts
 .aws-sam/
+.vercel
+.env*
