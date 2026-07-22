@@ -24,6 +24,9 @@ module.exports = async (req, res) => {
   try {
     const event = req.body;
 
+    // LOG TEMPORAL DE DIAGNOSTICO -- quitar una vez confirmado el formato real
+    console.log('EVENTO RECIBIDO:', JSON.stringify(event));
+
     // El payload trae la sesión de telefonía; nos interesa el evento
     // de llamada perdida (missedCall) en la extensión de destino.
     const body = event.body || {};
