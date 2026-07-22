@@ -28,11 +28,12 @@ module.exports = async (req, res) => {
     console.log('EVENTO RECIBIDO:', JSON.stringify(event));
 
     // El payload trae la sesión de telefonía; nos interesa el evento
-    // de llamada perdida (missedCall) en la extensión de destino.
+    // de llamada perdida (missedCall) dentro de body.parties[0].
     const body = event.body || {};
-    const telephonySessions = body.parties || body.sessions || [];
-    const extensionId = body.extensionId || (body.telephonySessionId ? body.extensionId : null);
-    const missedCall = body.missedCall === true;
+    const parties = body.parties || [];
+    const party = parties[0] || {};
+    const extensionId = party.extensionId;
+    const missedCall = party.missedCall === true;
 
     if (!missedCall || !extensionId) {
       // No es un evento de llamada perdida -- se reconoce igual con 200
@@ -40,9 +41,8 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ignored: true });
     }
 
-    const clientPhone =
-      (body.from && body.from.phoneNumber) || (body.caller && body.caller.phoneNumber);
-    const receivedAt = body.startTime ? new Date(body.startTime) : new Date();
+    const clientPhone = party.from && party.from.phoneNumber;
+    const receivedAt = body.eventTime ? new Date(body.eventTime) : new Date();
     const deadlineAt = new Date(receivedAt.getTime() + 30 * 60 * 1000);
 
     const supabase = getSupabaseAdmin();
