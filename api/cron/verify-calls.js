@@ -30,8 +30,14 @@ module.exports = async (req, res) => {
   const updates = [];
   const errors = [];
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
   for (const c of openCases || []) {
     try {
+      // Pequena pausa entre casos para no disparar demasiadas solicitudes
+      // seguidas al call-log de RingCentral (evita el 429 de rate limit).
+      await sleep(400);
+
       let attempts = c.call_attempts || [];
       let attempt1 = attempts.find((a) => a.attempt_number === 1);
       let attempt2 = attempts.find((a) => a.attempt_number === 2);
@@ -130,8 +136,6 @@ module.exports = async (req, res) => {
         updates.push({ id: c.id, new_status: 'Reagendado' });
       }
     } catch (caseErr) {
-      // Un error en UN caso (ej. permisos de RingCentral para esa extension)
-      // no debe tumbar la revision de todos los demas casos.
       console.error(`Error procesando caso ${c.id}:`, caseErr.message);
       errors.push({ id: c.id, error: caseErr.message });
     }
