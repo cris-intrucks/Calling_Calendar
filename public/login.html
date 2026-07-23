@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
@@ -73,8 +73,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    let supabase;
-let supabaseClient;
+    let supabaseClient;
 
     async function init() {
       const res = await fetch('/api/config');
@@ -95,7 +94,7 @@ let supabaseClient;
         return;
       }
 
-     const { error } = await supabaseClient.auth.signInWithOtp({
+      const { error } = await supabaseClient.auth.signInWithOtp({
         email,
         options: { shouldCreateUser: false },
       });
