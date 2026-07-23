@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Protocolo de Callback - InTrucks</title>
+<style>
+  :root {
+    --teal: #399b80;
+    --navy: #00347c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Montserrat Alternates', sans-serif;
+    background: linear-gradient(135deg, var(--teal), var(--navy));
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+  }
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+  h1 { font-size: 20px; color: var(--navy); margin-bottom: 8px; }
+  p { color: #555; font-size: 14px; margin-bottom: 20px; }
+  input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: var(--teal);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error { color: #c0392b; font-size: 13px; margin-top: 8px; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Protocolo de Callback</h1>
+    <p>Ingresa con tu correo @intruckscorp.com</p>
+
+    <div id="step-email">
+      <input type="email" id="email" placeholder="nombre.apellido@intruckscorp.com" />
+      <button id="btn-send">Enviar código</button>
+      <div id="error-email" class="error"></div>
+    </div>
+
+    <div id="step-code" class="hidden">
+      <input type="text" id="code" placeholder="Código de 6 dígitos" maxlength="6" />
+      <button id="btn-verify">Ingresar</button>
+      <div id="error-code" class="error"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    let supabase;
+
+    async function init() {
+      const res = await fetch('/api/config');
+      const { supabaseUrl, supabaseAnonKey } = await res.json();
+      supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+    }
+
+    const ALLOWED_DOMAIN = '@intruckscorp.com';
+    let currentEmail = '';
+
+    document.getElementById('btn-send').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const errorEl = document.getElementById('error-email');
+      errorEl.textContent = '';
+
+      if (!email.endsWith(ALLOWED_DOMAIN)) {
+        errorEl.textContent = `Solo se permiten correos ${ALLOWED_DOMAIN}`;
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false },
+      });
+
+      if (error) {
+        errorEl.textContent = 'No se pudo enviar el código. Verifica que tu correo esté registrado.';
+        return;
+      }
+
+      currentEmail = email;
+      document.getElementById('step-email').classList.add('hidden');
+      document.getElementById('step-code').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-verify').addEventListener('click', async () => {
+      const code = document.getElementById('code').value.trim();
+      const errorEl = document.getElementById('error-code');
+      errorEl.textContent = '';
+
+      const { error } = await supabase.auth.verifyOtp({
+        email: currentEmail,
+        token: code,
+        type: 'email',
+      });
+
+      if (error) {
+        errorEl.textContent = 'Código incorrecto o expirado.';
+        return;
+      }
+
+      window.location.href = '/dashboard.html';
+    });
+
+    init();
+  </script>
+</body>
+</html>
