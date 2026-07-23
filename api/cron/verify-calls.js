@@ -17,10 +17,17 @@ module.exports = async (req, res) => {
 
   const supabase = getSupabaseAdmin();
 
+  // Trae casos abiertos (no resueltos aún) junto con sus intentos y asesor.
+  // Se limita el lote por ejecucion (los mas antiguos primero) para no
+  // saturar el rate limit de RingCentral ni el tiempo maximo de la funcion --
+  // como el cron corre cada 5 min, los casos restantes se revisan en la
+  // siguiente corrida.
   const { data: openCases, error } = await supabase
     .from('missed_calls')
     .select('*, advisors(*), call_attempts(*)')
-    .in('status', ['Pendiente', 'Reagendado']);
+    .in('status', ['Pendiente', 'Reagendado'])
+    .order('received_at', { ascending: true })
+    .limit(3);
 
   if (error) {
     console.error(error);
@@ -34,17 +41,12 @@ module.exports = async (req, res) => {
 
   for (const c of openCases || []) {
     try {
-      // Pequena pausa entre casos para no disparar demasiadas solicitudes
-      // seguidas al call-log de RingCentral (evita el 429 de rate limit).
-      await sleep(400);
+      await sleep(800);
 
       let attempts = c.call_attempts || [];
       let attempt1 = attempts.find((a) => a.attempt_number === 1);
       let attempt2 = attempts.find((a) => a.attempt_number === 2);
 
-      // 0. Deteccion proactiva: si el asesor todavia no ha marcado NADA en el
-      //    dashboard, igual revisamos si ya llamo de verdad -- para que el
-      //    caso se cierre solo, sin depender de que se acuerde de marcarlo.
       if (!attempt1) {
         const realCall = await getOutboundCallLog({
           extensionId: c.advisors.ringcentral_extension_id,
@@ -74,8 +76,6 @@ module.exports = async (req, res) => {
         }
       }
 
-      // 1. Verificar contra el log real si el asesor marcó "contactado" pero
-      //    no quedó verificado aún.
       for (const attempt of [attempt1, attempt2]) {
         if (attempt && attempt.outcome === 'contactado' && !attempt.verified_via_api) {
           const realCall = await getOutboundCallLog({
@@ -100,7 +100,6 @@ module.exports = async (req, res) => {
         }
       }
 
-      // 2. Resolver el status según la regla de 2 intentos mínimos
       if (attempt2) {
         const bothFailed =
           attempt1 &&
