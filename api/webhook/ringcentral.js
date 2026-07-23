@@ -43,7 +43,7 @@ module.exports = async (req, res) => {
 
     const clientPhone = party.from && party.from.phoneNumber;
     const receivedAt = body.eventTime ? new Date(body.eventTime) : new Date();
-    const deadlineAt = new Date(receivedAt.getTime() + 30 * 60 * 1000);
+    const deadlineAt = new Date(receivedAt.getTime() + 20 * 60 * 1000);
 
     const supabase = getSupabaseAdmin();
 
@@ -89,22 +89,28 @@ module.exports = async (req, res) => {
     }
 
     // 4. Notificar al cliente por SMS desde la línea del asesor
+    // (envuelto en su propio try/catch: si el SMS falla, el caso ya quedó
+    // guardado y no debe perderse la respuesta exitosa por esto)
     if (advisor.sms_capable_number && clientPhone) {
-      const deadlineLocal = deadlineAt.toLocaleTimeString('es-CO', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      await sendSms({
-        fromExtensionId: advisor.ringcentral_extension_id,
-        fromNumber: advisor.sms_capable_number,
-        toNumber: clientPhone,
-        text: `Recibimos tu llamada. Un asesor te contactará antes de las ${deadlineLocal}.`,
-      });
+      try {
+        const deadlineLocal = deadlineAt.toLocaleTimeString('es-CO', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        await sendSms({
+          fromExtensionId: advisor.ringcentral_extension_id,
+          fromNumber: advisor.sms_capable_number,
+          toNumber: clientPhone,
+          text: `Recibimos tu llamada. Un asesor te contactará antes de las ${deadlineLocal}.`,
+        });
 
-      await supabase
-        .from('missed_calls')
-        .update({ sms_sent_at: new Date().toISOString() })
-        .eq('id', missedCallRow.id);
+        await supabase
+          .from('missed_calls')
+          .update({ sms_sent_at: new Date().toISOString() })
+          .eq('id', missedCallRow.id);
+      } catch (smsErr) {
+        console.error('Error enviando SMS (el caso ya quedo guardado):', smsErr.message);
+      }
     }
 
     return res.status(200).json({ ok: true, missed_call_id: missedCallRow.id });
