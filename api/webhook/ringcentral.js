@@ -70,6 +70,34 @@ module.exports = async (req, res) => {
       return res.status(200).json({ duplicate: true });
     }
 
+    // 3b. Deduplicación por cliente: si este mismo cliente ya tiene un caso
+    // abierto (Pendiente/Reagendado) con este asesor, no se crea uno nuevo --
+    // solo cuenta como una llamada perdida, aunque el cliente haya marcado
+    // varias veces seguidas sin que le contesten. Se actualiza el caso
+    // existente con el intento mas reciente, para que el deadline se calcule
+    // desde el ultimo contacto real del cliente.
+    const { data: openCase } = await supabase
+      .from('missed_calls')
+      .select('id')
+      .eq('client_phone', clientPhone)
+      .eq('advisor_id', advisor.id)
+      .in('status', ['Pendiente', 'Reagendado'])
+      .order('received_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (openCase) {
+      await supabase
+        .from('missed_calls')
+        .update({
+          received_at: receivedAt.toISOString(),
+          deadline_at: deadlineAt.toISOString(),
+        })
+        .eq('id', openCase.id);
+
+      return res.status(200).json({ merged_into_existing_case: openCase.id });
+    }
+
     const { data: missedCallRow, error: insertError } = await supabase
       .from('missed_calls')
       .insert({
