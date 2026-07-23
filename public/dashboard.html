@@ -4,104 +4,240 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Protocolo de Callback - InTrucks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --teal: #399b80;
-    --navy: #00347c;
-    --red: #c0392b;
-    --green: #2e7d32;
+    --bg: #f5f6f3;
+    --surface: #ffffff;
+    --ink: #16211c;
+    --muted: #6b7280;
+    --line: #e6e8e3;
+    --teal: #2f8f76;
+    --teal-dark: #1f6b57;
+    --navy: #13346e;
+    --amber: #c98a1f;
+    --amber-bg: #fbf1de;
+    --red: #b23a2e;
+    --red-bg: #fbeae8;
+    --green: #2f8f56;
+    --green-bg: #e9f5ee;
+    --purple: #6a3f9e;
+    --purple-bg: #f0eaf9;
+    --radius: 10px;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   }
   * { box-sizing: border-box; }
   body {
-    font-family: 'Montserrat Alternates', sans-serif;
+    font-family: var(--font-body);
     margin: 0;
-    background: #f4f6f8;
-    color: #222;
+    background: var(--bg);
+    color: var(--ink);
   }
   header {
-    background: linear-gradient(135deg, var(--teal), var(--navy));
+    background: linear-gradient(120deg, var(--teal-dark), var(--navy));
     color: white;
-    padding: 16px 24px;
+    padding: 18px 28px;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  header h1 { font-size: 18px; margin: 0; }
-  header button {
-    background: rgba(255,255,255,0.2);
-    border: none;
-    color: white;
-    padding: 6px 14px;
-    border-radius: 6px;
-    cursor: pointer;
+  header h1 {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.2px;
   }
+  header .sub {
+    font-size: 12px;
+    opacity: 0.75;
+    margin-top: 2px;
+    font-family: var(--font-mono);
+  }
+  header button {
+    background: rgba(255,255,255,0.16);
+    border: 1px solid rgba(255,255,255,0.28);
+    color: white;
+    padding: 7px 16px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 13px;
+  }
+  header button:hover { background: rgba(255,255,255,0.26); }
   nav {
     display: flex;
-    gap: 4px;
-    background: white;
-    padding: 0 24px;
-    border-bottom: 1px solid #ddd;
+    gap: 2px;
+    background: var(--surface);
+    padding: 0 28px;
+    border-bottom: 1px solid var(--line);
     overflow-x: auto;
   }
   nav button {
     border: none;
     background: none;
-    padding: 12px 16px;
+    padding: 13px 16px;
     cursor: pointer;
-    font-size: 14px;
-    font-weight: bold;
-    color: #666;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--muted);
     border-bottom: 3px solid transparent;
     white-space: nowrap;
+    font-family: var(--font-body);
+    transition: color 0.15s;
   }
   nav button.active { color: var(--navy); border-bottom-color: var(--teal); }
-  main { padding: 24px; max-width: 1100px; margin: 0 auto; }
-  .cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-  .metric-card {
-    background: white;
-    border-radius: 10px;
-    padding: 16px 20px;
-    min-width: 160px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  nav button:hover:not(.active) { color: var(--ink); }
+  main { padding: 28px; max-width: 1180px; margin: 0 auto; }
+
+  h3.group-title {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--navy);
+    margin: 28px 0 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
   }
-  .metric-card .value { font-size: 26px; font-weight: bold; }
-  .metric-card .label { font-size: 12px; color: #666; }
+  h3.group-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+  .cards { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+  .metric-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    min-width: 170px;
+    flex: 1;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid var(--line);
+  }
+  .metric-card .value {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .metric-card .trend {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    margin-top: 4px;
+    display: inline-block;
+  }
+  .trend.up { color: var(--green); }
+  .trend.down { color: var(--red); }
+  .trend.flat { color: var(--muted); }
+  .metric-card .label { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .metric-card.alert .value { color: var(--red); }
   .metric-card.ok .value { color: var(--green); }
-  table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; }
-  th, td { padding: 10px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #eee; }
-  th { background: #fafafa; color: #666; font-size: 12px; text-transform: uppercase; }
-  .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
-  .badge.Pendiente { background: #fff3cd; color: #856404; }
-  .badge.Completado_a_tiempo { background: #d4edda; color: var(--green); }
-  .badge.Completado_tarde { background: #ffe0b2; color: #a05a00; }
-  .badge.Sin_respuesta { background: #f8d7da; color: var(--red); }
-  .badge.Discrepancia { background: #e2d6f3; color: #6a1b9a; }
-  .badge.Reagendado { background: #d1ecf1; color: #0c5460; }
+
+  .sparkline { margin-top: 8px; }
+
+  .filters {
+    display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+  }
+  .filters select {
+    width: auto; margin-bottom: 0; padding: 7px 10px; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 7px; background: var(--surface);
+    font-family: var(--font-body); color: var(--ink);
+  }
+  .filters .count { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  th, td { padding: 11px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid var(--line); }
+  th { background: #fafbf9; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+  td.mono, td.phone, td.time { font-family: var(--font-mono); font-size: 12.5px; }
+
+  tr.case-row { border-left: 3px solid transparent; cursor: pointer; }
+  tr.case-row:hover { background: #fafbf9; }
+  tr.urg-ok { border-left-color: var(--green); }
+  tr.urg-urgente { border-left-color: var(--amber); background: #fffdf7; }
+  tr.urg-vencido { border-left-color: var(--red); background: #fffafa; }
+  tr.urg-discrepancia { border-left-color: var(--purple); background: #fdfaff; }
+  tr.urg-neutral { border-left-color: var(--line); }
+
+  .countdown { font-family: var(--font-mono); font-size: 11.5px; }
+  .countdown.urg-ok { color: var(--green); }
+  .countdown.urg-urgente { color: var(--amber); }
+  .countdown.urg-vencido { color: var(--red); font-weight: 600; }
+  .countdown.urg-neutral { color: var(--muted); }
+
+  .badge { padding: 3px 9px; border-radius: 12px; font-size: 11px; font-weight: 600; font-family: var(--font-body); white-space: nowrap; }
+  .badge.Pendiente { background: var(--amber-bg); color: var(--amber); }
+  .badge.Completado_a_tiempo { background: var(--green-bg); color: var(--green); }
+  .badge.Completado_tarde { background: #fdf0e0; color: #a05a00; }
+  .badge.Sin_respuesta { background: var(--red-bg); color: var(--red); }
+  .badge.Discrepancia { background: var(--purple-bg); color: var(--purple); }
+  .badge.Reagendado { background: #dcf0f4; color: #0c5460; }
+
   button.action {
     background: var(--teal); color: white; border: none; padding: 6px 12px;
-    border-radius: 6px; cursor: pointer; font-size: 12px;
+    border-radius: 6px; cursor: pointer; font-size: 12px; font-family: var(--font-body); font-weight: 500;
   }
-  .hidden { display: none; }
-  select, textarea {
-    width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px; font-size: 14px;
+  button.action:hover { background: var(--teal-dark); }
+  button.toggle-detail {
+    background: none; border: 1px solid var(--line); color: var(--muted);
+    width: 26px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+
+  tr.detail-row td { background: #fafbf9; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+  .attempt-chip {
+    display: inline-block; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 12px; margin: 4px 8px 4px 0; font-size: 12px;
+  }
+  .attempt-chip .n { font-family: var(--font-mono); font-weight: 600; color: var(--navy); }
+  .attempt-chip .verified { color: var(--green); font-size: 10.5px; margin-left: 6px; }
+  .no-attempts { color: var(--muted); font-size: 12.5px; font-style: italic; }
+
+  select.modal-select, textarea {
+    width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 7px; margin-bottom: 10px;
+    font-size: 14px; font-family: var(--font-body);
   }
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-    display: flex; align-items: center; justify-content: center;
+    position: fixed; inset: 0; background: rgba(15,25,20,0.45);
+    display: flex; align-items: center; justify-content: center; z-index: 50;
   }
-  .modal { background: white; border-radius: 10px; padding: 24px; width: 100%; max-width: 380px; }
-  .modal h3 { margin-top: 0; }
+  .modal { background: white; border-radius: var(--radius); padding: 24px; width: 100%; max-width: 380px; }
+  .modal h3 { margin-top: 0; font-family: var(--font-display); }
   .modal-actions { display: flex; gap: 8px; margin-top: 12px; }
-  .modal-actions button { flex: 1; padding: 10px; border-radius: 6px; border: none; cursor: pointer; }
+  .modal-actions button { flex: 1; padding: 10px; border-radius: 7px; border: none; cursor: pointer; font-family: var(--font-body); font-weight: 500; }
   .btn-cancel { background: #eee; }
   .btn-confirm { background: var(--teal); color: white; }
-  .empty { color: #888; padding: 20px; text-align: center; }
+
+  .alert-card {
+    background: var(--surface); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 10px;
+    border-left: 4px solid var(--line); display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .alert-card.severity-red { border-left-color: var(--red); }
+  .alert-card.severity-amber { border-left-color: var(--amber); }
+  .alert-card .msg { font-size: 13.5px; }
+  .alert-card .msg b { font-family: var(--font-mono); }
+  .alert-card .tag {
+    font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+    padding: 3px 8px; border-radius: 10px;
+  }
+  .severity-red .tag { background: var(--red-bg); color: var(--red); }
+  .severity-amber .tag { background: var(--amber-bg); color: var(--amber); }
+
+  .empty { color: var(--muted); padding: 30px; text-align: center; font-size: 13.5px; }
+  .hidden { display: none; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    main { animation: fadein 0.18s ease-out; }
+  }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 </style>
 </head>
 <body>
   <header>
-    <h1 id="header-title">Protocolo de Callback</h1>
+    <div>
+      <h1 id="header-title">Protocolo de Callback</h1>
+      <div class="sub" id="header-sub">InTrucks · Callback Ops</div>
+    </div>
     <button id="btn-logout">Salir</button>
   </header>
 
@@ -118,8 +254,22 @@
     let supabaseClient;
     let currentAdvisor = null;
     let activeTab = 'mis-casos';
+    let refreshTimer = null;
+
+    // Filtros de la vista "Todos los Casos" (solo admin)
+    const filters = { team: 'all', advisor: 'all', status: 'all' };
+    const expandedRows = new Set();
 
     const THRESHOLD_PCT = 10;
+    const STATUS_LIST = ['Pendiente', 'Reagendado', 'Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta', 'Discrepancia'];
+    const OUTCOME_LABELS = {
+      contactado: 'Contactado',
+      buzon_voz: 'Buzón de voz',
+      no_contesta: 'No contesta',
+      numero_invalido: 'Número inválido',
+      cliente_reagendo: 'Cliente reagendó',
+      otro: 'Otro',
+    };
 
     async function init() {
       const res = await fetch('/api/config');
@@ -147,8 +297,14 @@
 
       currentAdvisor = advisor;
       document.getElementById('header-title').textContent = `Hola, ${advisor.name}`;
+      document.getElementById('header-sub').textContent = `${advisor.team || 'Sin equipo'} · ${advisor.role === 'admin' ? 'Administrador' : 'Asesor'}`;
       renderTabs();
       renderTab();
+
+      // Refresca la urgencia (colores/contadores) cada 60s sin recargar todo desde cero
+      refreshTimer = setInterval(() => {
+        if (activeTab === 'mis-casos' || activeTab === 'todos-casos') renderTab();
+      }, 60000);
     }
 
     function renderTabs() {
@@ -169,7 +325,7 @@
         const btn = document.createElement('button');
         btn.textContent = t.label;
         btn.className = t.id === activeTab ? 'active' : '';
-        btn.onclick = () => { activeTab = t.id; renderTabs(); renderTab(); };
+        btn.onclick = () => { activeTab = t.id; expandedRows.clear(); renderTabs(); renderTab(); };
         nav.appendChild(btn);
       });
     }
@@ -185,13 +341,41 @@
       if (activeTab === 'alertas') return renderAlertas();
     }
 
-    async function renderCasos(showAdvisorColumn) {
-      const { data: casos, error } = await supabaseClient
+    // ---------- CASOS ----------
+
+    function urgencyOf(status, deadlineIso) {
+      if (status === 'Discrepancia') return 'discrepancia';
+      const resolved = ['Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta'].includes(status);
+      if (resolved) return 'neutral';
+      const msLeft = new Date(deadlineIso) - Date.now();
+      if (msLeft <= 0) return 'vencido';
+      if (msLeft <= 15 * 60 * 1000) return 'urgente';
+      return 'ok';
+    }
+
+    function countdownLabel(status, deadlineIso, urg) {
+      if (urg === 'neutral') return '—';
+      const msLeft = new Date(deadlineIso) - Date.now();
+      const absMin = Math.round(Math.abs(msLeft) / 60000);
+      if (urg === 'discrepancia') return 'Revisar discrepancia';
+      if (msLeft <= 0) return `Vencido hace ${absMin} min`;
+      return `Vence en ${absMin} min`;
+    }
+
+    async function renderCasos(isAdminView) {
+      let query = supabaseClient
         .from('missed_calls')
-        .select('*, advisors(name), call_attempts(*)')
+        .select('*, advisors(id, name, team), call_attempts(*)')
         .order('deadline_at', { ascending: true });
 
+      // FIX: "Mis Casos" debe filtrar por el asesor logueado, no traer todos.
+      if (!isAdminView) {
+        query = query.eq('advisor_id', currentAdvisor.id);
+      }
+
+      const { data: casos, error } = await query;
       const content = document.getElementById('content');
+
       if (error) {
         content.innerHTML = `<p class="empty">Error cargando casos: ${error.message}</p>`;
         return;
@@ -201,37 +385,116 @@
         return;
       }
 
-      const rows = casos.map(c => {
-        const attempts = c.call_attempts || [];
+      let html = '';
+      let visibleCasos = casos;
+
+      if (isAdminView) {
+        const teams = [...new Set(casos.map(c => c.advisors?.team).filter(Boolean))].sort();
+        const advisorNames = [...new Set(casos.map(c => c.advisors?.name).filter(Boolean))].sort();
+
+        html += `
+          <div class="filters">
+            <select id="filter-team" onchange="onFilterChange('team', this.value)">
+              <option value="all">Todos los equipos</option>
+              ${teams.map(t => `<option value="${t}" ${filters.team === t ? 'selected' : ''}>${t}</option>`).join('')}
+            </select>
+            <select id="filter-advisor" onchange="onFilterChange('advisor', this.value)">
+              <option value="all">Todos los asesores</option>
+              ${advisorNames.map(n => `<option value="${n}" ${filters.advisor === n ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
+            <select id="filter-status" onchange="onFilterChange('status', this.value)">
+              <option value="all">Todos los estados</option>
+              ${STATUS_LIST.map(s => `<option value="${s}" ${filters.status === s ? 'selected' : ''}>${s.replace('_', ' ')}</option>`).join('')}
+            </select>
+          </div>
+        `;
+
+        visibleCasos = casos.filter(c =>
+          (filters.team === 'all' || c.advisors?.team === filters.team) &&
+          (filters.advisor === 'all' || c.advisors?.name === filters.advisor) &&
+          (filters.status === 'all' || c.status === filters.status)
+        );
+      }
+
+      if (visibleCasos.length === 0) {
+        html += '<p class="empty">Ningún caso coincide con los filtros seleccionados.</p>';
+        content.innerHTML = html;
+        return;
+      }
+
+      const rows = visibleCasos.map(c => {
+        const attempts = (c.call_attempts || []).sort((a, b) => a.attempt_number - b.attempt_number);
         const canLog = attempts.length < 2 && !['Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta'].includes(c.status);
-        return `
-          <tr>
-            ${showAdvisorColumn ? `<td>${c.advisors?.name || '-'}</td>` : ''}
-            <td>${c.client_phone || '-'}</td>
-            <td>${formatTime(c.received_at)}</td>
-            <td>${formatTime(c.deadline_at)}</td>
-            <td><span class="badge ${c.status}">${c.status.replace('_', ' ')}</span></td>
-            <td>${attempts.length}/2</td>
-            <td>${canLog ? `<button class="action" onclick="openAttemptModal('${c.id}')">Registrar intento</button>` : '-'}</td>
+        const urg = urgencyOf(c.status, c.deadline_at);
+        const isExpanded = expandedRows.has(c.id);
+
+        const detailHtml = isExpanded ? `
+          <tr class="detail-row">
+            <td colspan="${isAdminView ? 8 : 7}">
+              ${attempts.length === 0
+                ? '<span class="no-attempts">Sin intentos registrados todavía.</span>'
+                : attempts.map(a => `
+                    <span class="attempt-chip">
+                      <span class="n">Intento ${a.attempt_number}</span> —
+                      ${OUTCOME_LABELS[a.outcome] || a.outcome}
+                      · ${formatTime(a.attempted_at)}
+                      ${a.verified_via_api ? '<span class="verified">✓ verificado API</span>' : ''}
+                      ${a.notes ? `<br><span style="color:var(--muted)">${escapeHtml(a.notes)}</span>` : ''}
+                    </span>
+                  `).join('')
+              }
+            </td>
           </tr>
+        ` : '';
+
+        return `
+          <tr class="case-row urg-${urg}" onclick="toggleDetail(event, '${c.id}')">
+            ${isAdminView ? `<td>${c.advisors?.name || '-'}</td>` : ''}
+            <td class="phone">${c.client_phone || '-'}</td>
+            <td class="time">${formatTime(c.received_at)}</td>
+            <td class="time">${formatTime(c.deadline_at)}</td>
+            <td><span class="badge ${c.status}">${c.status.replace('_', ' ')}</span></td>
+            <td class="countdown urg-${urg}">${countdownLabel(c.status, c.deadline_at, urg)}</td>
+            <td class="mono">${attempts.length}/2</td>
+            <td onclick="event.stopPropagation()">${canLog ? `<button class="action" onclick="openAttemptModal('${c.id}')">Registrar intento</button>` : '-'}</td>
+          </tr>
+          ${detailHtml}
         `;
       }).join('');
 
-      content.innerHTML = `
+      html += `
+        <div class="filters"><span class="count">${visibleCasos.length} caso(s)</span></div>
         <table>
           <thead><tr>
-            ${showAdvisorColumn ? '<th>Asesor</th>' : ''}
-            <th>Cliente</th><th>Recibido</th><th>Deadline</th><th>Estado</th><th>Intentos</th><th>Acción</th>
+            ${isAdminView ? '<th>Asesor</th>' : ''}
+            <th>Cliente</th><th>Recibido</th><th>Deadline</th><th>Estado</th><th>Urgencia</th><th>Intentos</th><th>Acción</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
       `;
+
+      content.innerHTML = html;
     }
+
+    window.onFilterChange = function (key, value) {
+      filters[key] = value;
+      renderTab();
+    };
+
+    window.toggleDetail = function (event, id) {
+      if (event.target.closest('button')) return; // no interferir con "Registrar intento"
+      if (expandedRows.has(id)) expandedRows.delete(id);
+      else expandedRows.add(id);
+      renderTab();
+    };
+
+    // ---------- METRICAS ----------
 
     async function renderMetrica(byTeam) {
       const { data: rows, error } = await supabaseClient
         .from('satisfaction_indicator')
-        .select('*');
+        .select('*')
+        .order('week', { ascending: true });
 
       const content = document.getElementById('content');
       if (error) {
@@ -243,106 +506,281 @@
         return;
       }
 
-      let groups;
+      let html = '';
+
       if (byTeam) {
-        groups = {};
+        const teamGroups = {};
         rows.forEach(r => {
           const key = r.team || 'Sin equipo';
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(r);
+          if (!teamGroups[key]) teamGroups[key] = [];
+          teamGroups[key].push(r);
         });
+
+        for (const [teamName, teamRows] of Object.entries(teamGroups)) {
+          html += `<h3 class="group-title">${teamName}</h3>`;
+          html += renderCards(aggregateLatestVsPrevious(teamRows));
+          html += renderRanking(teamRows);
+        }
       } else {
-        groups = { [currentAdvisor.name]: rows.filter(r => r.advisor_id === currentAdvisor.id) };
+        const myRows = rows.filter(r => r.advisor_id === currentAdvisor.id);
+        if (myRows.length === 0) {
+          html = '<p class="empty">Todavía no tienes suficientes casos registrados para calcular tu métrica.</p>';
+        } else {
+          html += renderCards(aggregateLatestVsPrevious(myRows));
+          html += renderSparkline(myRows);
+        }
       }
 
-      let html = '';
-      for (const [label, groupRows] of Object.entries(groups)) {
-        const agg = aggregate(groupRows);
-        html += `<h3>${label}</h3>` + renderCards(agg);
-      }
       content.innerHTML = html || '<p class="empty">Sin datos.</p>';
     }
 
-    function aggregate(rows) {
-      const total = rows.reduce((s, r) => s + (r.total_casos || 0), 0);
-      const aTiempo = rows.reduce((s, r) => s + (r.a_tiempo || 0), 0);
-      const sinResp = rows.reduce((s, r) => s + (r.sin_respuesta || 0), 0);
-      const discrep = rows.reduce((s, r) => s + (r.discrepancias || 0), 0);
-      const tiempos = rows.map(r => r.tiempo_promedio_respuesta_min).filter(v => v != null);
-      const tiempoProm = tiempos.length ? (tiempos.reduce((a, b) => a + b, 0) / tiempos.length).toFixed(1) : '-';
-
+    function weekAgg(weekRows) {
+      const total = weekRows.reduce((s, r) => s + (r.total_casos || 0), 0);
+      const aTiempo = weekRows.reduce((s, r) => s + (r.a_tiempo || 0), 0);
+      const sinResp = weekRows.reduce((s, r) => s + (r.sin_respuesta || 0), 0);
+      const discrep = weekRows.reduce((s, r) => s + (r.discrepancias || 0), 0);
+      const tiempos = weekRows.map(r => r.tiempo_promedio_respuesta_min).filter(v => v != null);
+      const tiempoProm = tiempos.length ? tiempos.reduce((a, b) => a + b, 0) / tiempos.length : null;
       return {
-        pctVentana: total ? ((aTiempo / total) * 100).toFixed(1) : '-',
+        pctVentana: total ? (aTiempo / total) * 100 : null,
         tiempoProm,
-        pctSinResp: total ? ((sinResp / total) * 100).toFixed(1) : '0.0',
-        pctDiscrep: total ? ((discrep / total) * 100).toFixed(1) : '0.0',
+        pctSinResp: total ? (sinResp / total) * 100 : 0,
+        pctDiscrep: total ? (discrep / total) * 100 : 0,
       };
     }
 
-    function renderCards(agg) {
-      const ventanaAlert = agg.pctVentana !== '-' && parseFloat(agg.pctVentana) < (100 - THRESHOLD_PCT);
-      const sinRespAlert = parseFloat(agg.pctSinResp) > THRESHOLD_PCT;
-      const discrepAlert = parseFloat(agg.pctDiscrep) > THRESHOLD_PCT;
+    function aggregateLatestVsPrevious(allRows) {
+      const byWeek = {};
+      allRows.forEach(r => {
+        const key = new Date(r.week).toISOString().slice(0, 10);
+        if (!byWeek[key]) byWeek[key] = [];
+        byWeek[key].push(r);
+      });
+      const weekKeys = Object.keys(byWeek).sort();
+      const latestKey = weekKeys[weekKeys.length - 1];
+      const prevKey = weekKeys[weekKeys.length - 2];
+
+      const latest = weekAgg(byWeek[latestKey]);
+      const prev = prevKey ? weekAgg(byWeek[prevKey]) : null;
+
+      return { latest, prev };
+    }
+
+    function trendHtml(current, previous, higherIsBetter = true) {
+      if (current == null || previous == null) return '';
+      const diff = current - previous;
+      if (Math.abs(diff) < 0.5) return `<span class="trend flat">→ sin cambio vs. semana anterior</span>`;
+      const improved = higherIsBetter ? diff > 0 : diff < 0;
+      const arrow = diff > 0 ? '↑' : '↓';
+      return `<span class="trend ${improved ? 'up' : 'down'}">${arrow} ${Math.abs(diff).toFixed(1)} pts vs. semana anterior</span>`;
+    }
+
+    function renderCards({ latest, prev }) {
+      const ventanaAlert = latest.pctVentana !== null && latest.pctVentana < (100 - THRESHOLD_PCT);
+      const sinRespAlert = latest.pctSinResp > THRESHOLD_PCT;
+      const discrepAlert = latest.pctDiscrep > THRESHOLD_PCT;
 
       return `
         <div class="cards">
           <div class="metric-card ${ventanaAlert ? 'alert' : 'ok'}">
-            <div class="value">${agg.pctVentana}%</div>
+            <div class="value">${latest.pctVentana !== null ? latest.pctVentana.toFixed(1) + '%' : '—'}</div>
             <div class="label">Dentro de ventana</div>
+            ${trendHtml(latest.pctVentana, prev?.pctVentana, true)}
           </div>
           <div class="metric-card">
-            <div class="value">${agg.tiempoProm}</div>
+            <div class="value">${latest.tiempoProm !== null ? latest.tiempoProm.toFixed(1) : '—'}</div>
             <div class="label">Min. promedio respuesta</div>
+            ${trendHtml(latest.tiempoProm, prev?.tiempoProm, false)}
           </div>
           <div class="metric-card ${sinRespAlert ? 'alert' : 'ok'}">
-            <div class="value">${agg.pctSinResp}%</div>
+            <div class="value">${latest.pctSinResp.toFixed(1)}%</div>
             <div class="label">Sin respuesta</div>
+            ${trendHtml(latest.pctSinResp, prev?.pctSinResp, false)}
           </div>
           <div class="metric-card ${discrepAlert ? 'alert' : 'ok'}">
-            <div class="value">${agg.pctDiscrep}%</div>
+            <div class="value">${latest.pctDiscrep.toFixed(1)}%</div>
             <div class="label">Discrepancias</div>
+            ${trendHtml(latest.pctDiscrep, prev?.pctDiscrep, false)}
           </div>
         </div>
       `;
     }
 
-    async function renderAlertas() {
-      const { data: rows } = await supabaseClient.from('satisfaction_indicator').select('*');
-      const content = document.getElementById('content');
-      if (!rows) { content.innerHTML = '<p class="empty">Sin datos.</p>'; return; }
+    function renderSparkline(myRows) {
+      const byWeek = {};
+      myRows.forEach(r => {
+        const key = new Date(r.week).toISOString().slice(0, 10);
+        if (!byWeek[key]) byWeek[key] = [];
+        byWeek[key].push(r);
+      });
+      const weekKeys = Object.keys(byWeek).sort();
+      const values = weekKeys.map(k => weekAgg(byWeek[k]).pctVentana ?? 0);
+      if (values.length < 2) return '';
 
-      const alerts = [];
-      rows.forEach(r => {
-        const pctVentana = r.total_casos ? (r.a_tiempo / r.total_casos) * 100 : null;
-        const pctSinResp = r.total_casos ? (r.sin_respuesta / r.total_casos) * 100 : 0;
-        const pctDiscrep = r.total_casos ? (r.discrepancias / r.total_casos) * 100 : 0;
-        if (pctVentana !== null && pctVentana < (100 - THRESHOLD_PCT)) {
-          alerts.push(`${r.advisor_name} (${r.team}): solo ${pctVentana.toFixed(1)}% dentro de ventana`);
-        }
-        if (pctSinResp > THRESHOLD_PCT) {
-          alerts.push(`${r.advisor_name} (${r.team}): ${pctSinResp.toFixed(1)}% de casos Sin_respuesta`);
-        }
-        if (pctDiscrep > THRESHOLD_PCT) {
-          alerts.push(`${r.advisor_name} (${r.team}): ${pctDiscrep.toFixed(1)}% de discrepancias`);
-        }
+      const w = 100, h = 32, pad = 3;
+      const max = Math.max(...values, 100);
+      const min = Math.min(...values, 0);
+      const range = max - min || 1;
+      const pts = values.map((v, i) => {
+        const x = pad + (i / (values.length - 1)) * (w - pad * 2);
+        const y = h - pad - ((v - min) / range) * (h - pad * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+
+      return `
+        <div class="sparkline">
+          <svg width="${w * 3}" height="${h * 2}" viewBox="0 0 ${w} ${h}" style="overflow:visible">
+            <polyline points="${pts}" fill="none" stroke="var(--teal)" stroke-width="1.5" />
+          </svg>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">Tendencia % dentro de ventana (${weekKeys.length} semanas)</div>
+        </div>
+      `;
+    }
+
+    function renderRanking(teamRows) {
+      const byAdvisor = {};
+      teamRows.forEach(r => {
+        if (!byAdvisor[r.advisor_id]) byAdvisor[r.advisor_id] = { name: r.advisor_name, rows: [] };
+        byAdvisor[r.advisor_id].rows.push(r);
       });
 
-      content.innerHTML = alerts.length
-        ? `<ul>${alerts.map(a => `<li>${a}</li>`).join('')}</ul>`
-        : '<p class="empty">Sin alertas activas -- todo dentro de umbral.</p>';
+      const ranked = Object.values(byAdvisor)
+        .map(a => ({ name: a.name, agg: weekAgg(a.rows.filter(r => r === a.rows[a.rows.length - 1] ? true : true)) }));
+      // Usamos el agregado de todas las semanas disponibles para cada asesor (histórico del periodo cargado)
+      const finalRanked = Object.values(byAdvisor).map(a => ({
+        name: a.name,
+        agg: weekAgg(a.rows),
+      })).sort((x, y) => (y.agg.pctVentana ?? 0) - (x.agg.pctVentana ?? 0));
+
+      const rows = finalRanked.map(a => `
+        <tr>
+          <td>${a.name}</td>
+          <td class="mono">${a.agg.pctVentana !== null ? a.agg.pctVentana.toFixed(1) + '%' : '—'}</td>
+          <td class="mono">${a.agg.tiempoProm !== null ? a.agg.tiempoProm.toFixed(1) : '—'} min</td>
+          <td class="mono">${a.agg.pctSinResp.toFixed(1)}%</td>
+          <td class="mono">${a.agg.pctDiscrep.toFixed(1)}%</td>
+        </tr>
+      `).join('');
+
+      return `
+        <table style="margin-top:12px;margin-bottom:24px">
+          <thead><tr><th>Asesor</th><th>% Ventana</th><th>Tiempo prom.</th><th>% Sin resp.</th><th>% Discrep.</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
     }
+
+    // ---------- ALERTAS ----------
+
+    async function renderAlertas() {
+      const content = document.getElementById('content');
+      const now = new Date();
+
+      const [{ data: health }, { data: overdue }, { data: satisfactionRows }] = await Promise.all([
+        supabaseClient.from('subscription_health').select('*').limit(1),
+        supabaseClient
+          .from('missed_calls')
+          .select('*, advisors(name)')
+          .in('status', ['Pendiente', 'Reagendado'])
+          .lt('deadline_at', now.toISOString())
+          .order('deadline_at', { ascending: true }),
+        supabaseClient.from('satisfaction_indicator').select('*').order('week', { ascending: true }),
+      ]);
+
+      let html = '';
+
+      // 1. Salud del sistema
+      html += '<h3 class="group-title">Salud del sistema</h3>';
+      if (health && health.length > 0) {
+        const h = health[0];
+        const expiresAt = new Date(h.expires_at);
+        const hoursLeft = (expiresAt - now) / (1000 * 60 * 60);
+        let severity = 'severity-green', tag = 'Activa';
+        if (hoursLeft <= 0) { severity = 'severity-red'; tag = 'Vencida'; }
+        else if (hoursLeft <= 2) { severity = 'severity-amber'; tag = 'Por vencer'; }
+
+        html += `
+          <div class="alert-card ${severity === 'severity-green' ? '' : severity}">
+            <span class="msg">Suscripción RingCentral (<b>${h.subscription_id}</b>) — vence ${formatTime(h.expires_at)}. Última renovación: ${formatTime(h.last_renewed_at)}.</span>
+            <span class="tag" style="${severity === 'severity-green' ? 'background:var(--green-bg);color:var(--green)' : ''}">${tag}</span>
+          </div>
+        `;
+      } else {
+        html += '<p class="empty">No hay información de suscripción disponible.</p>';
+      }
+
+      // 2. Casos vencidos sin resolver
+      html += '<h3 class="group-title">Casos vencidos sin resolver</h3>';
+      if (overdue && overdue.length > 0) {
+        html += overdue.map(c => {
+          const minsOverdue = Math.round((now - new Date(c.deadline_at)) / 60000);
+          return `
+            <div class="alert-card severity-red">
+              <span class="msg"><b>${c.advisors?.name || '—'}</b> — cliente ${c.client_phone}, vencido hace ${minsOverdue} min</span>
+              <span class="tag">Vencido</span>
+            </div>
+          `;
+        }).join('');
+      } else {
+        html += '<p class="empty">Sin casos vencidos ahora mismo. 🎉</p>';
+      }
+
+      // 3. Alertas de umbral (satisfaction_indicator, última semana por asesor)
+      html += '<h3 class="group-title">Desempeño fuera de umbral (última semana)</h3>';
+      const thresholdAlerts = [];
+      if (satisfactionRows && satisfactionRows.length > 0) {
+        const byAdvisor = {};
+        satisfactionRows.forEach(r => {
+          if (!byAdvisor[r.advisor_id]) byAdvisor[r.advisor_id] = [];
+          byAdvisor[r.advisor_id].push(r);
+        });
+        Object.values(byAdvisor).forEach(rowsForAdvisor => {
+          const last = rowsForAdvisor[rowsForAdvisor.length - 1];
+          const agg = weekAgg([last]);
+          if (agg.pctVentana !== null && agg.pctVentana < (100 - THRESHOLD_PCT)) {
+            thresholdAlerts.push({ severity: 'severity-amber', msg: `<b>${last.advisor_name}</b> (${last.team}): solo ${agg.pctVentana.toFixed(1)}% dentro de ventana`, tag: 'Ventana' });
+          }
+          if (agg.pctSinResp > THRESHOLD_PCT) {
+            thresholdAlerts.push({ severity: 'severity-red', msg: `<b>${last.advisor_name}</b> (${last.team}): ${agg.pctSinResp.toFixed(1)}% de casos sin respuesta`, tag: 'Sin resp.' });
+          }
+          if (agg.pctDiscrep > THRESHOLD_PCT) {
+            thresholdAlerts.push({ severity: 'severity-amber', msg: `<b>${last.advisor_name}</b> (${last.team}): ${agg.pctDiscrep.toFixed(1)}% de discrepancias`, tag: 'Discrep.' });
+          }
+        });
+      }
+      html += thresholdAlerts.length > 0
+        ? thresholdAlerts.map(a => `
+            <div class="alert-card ${a.severity}">
+              <span class="msg">${a.msg}</span>
+              <span class="tag">${a.tag}</span>
+            </div>
+          `).join('')
+        : '<p class="empty">Todo el equipo está dentro de umbral. 🎉</p>';
+
+      content.innerHTML = html;
+    }
+
+    // ---------- UTILIDADES ----------
 
     function formatTime(iso) {
       if (!iso) return '-';
       return new Date(iso).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
     }
 
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ---------- MODAL DE INTENTO ----------
+
     window.openAttemptModal = function (missedCallId) {
       document.getElementById('modal-root').innerHTML = `
         <div class="modal-backdrop">
           <div class="modal">
             <h3>Registrar intento</h3>
-            <select id="outcome-select">
+            <select class="modal-select" id="outcome-select">
               <option value="contactado">Contactado</option>
               <option value="buzon_voz">Buzón de voz</option>
               <option value="no_contesta">No contesta</option>
