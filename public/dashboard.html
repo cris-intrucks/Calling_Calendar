@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Protocolo de Callback - InTrucks</title>
+<style>
+  :root {
+    --teal: #399b80;
+    --navy: #00347c;
+    --red: #c0392b;
+    --green: #2e7d32;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Montserrat Alternates', sans-serif;
+    margin: 0;
+    background: #f4f6f8;
+    color: #222;
+  }
+  header {
+    background: linear-gradient(135deg, var(--teal), var(--navy));
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header button {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  nav {
+    display: flex;
+    gap: 4px;
+    background: white;
+    padding: 0 24px;
+    border-bottom: 1px solid #ddd;
+    overflow-x: auto;
+  }
+  nav button {
+    border: none;
+    background: none;
+    padding: 12px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    color: #666;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+  }
+  nav button.active { color: var(--navy); border-bottom-color: var(--teal); }
+  main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+  .cards { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .metric-card {
+    background: white;
+    border-radius: 10px;
+    padding: 16px 20px;
+    min-width: 160px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .metric-card .value { font-size: 26px; font-weight: bold; }
+  .metric-card .label { font-size: 12px; color: #666; }
+  .metric-card.alert .value { color: var(--red); }
+  .metric-card.ok .value { color: var(--green); }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; }
+  th, td { padding: 10px 12px; text-align: left; font-size: 13px; border-bottom: 1px solid #eee; }
+  th { background: #fafafa; color: #666; font-size: 12px; text-transform: uppercase; }
+  .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+  .badge.Pendiente { background: #fff3cd; color: #856404; }
+  .badge.Completado_a_tiempo { background: #d4edda; color: var(--green); }
+  .badge.Completado_tarde { background: #ffe0b2; color: #a05a00; }
+  .badge.Sin_respuesta { background: #f8d7da; color: var(--red); }
+  .badge.Discrepancia { background: #e2d6f3; color: #6a1b9a; }
+  .badge.Reagendado { background: #d1ecf1; color: #0c5460; }
+  button.action {
+    background: var(--teal); color: white; border: none; padding: 6px 12px;
+    border-radius: 6px; cursor: pointer; font-size: 12px;
+  }
+  .hidden { display: none; }
+  select, textarea {
+    width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px; font-size: 14px;
+  }
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal { background: white; border-radius: 10px; padding: 24px; width: 100%; max-width: 380px; }
+  .modal h3 { margin-top: 0; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .modal-actions button { flex: 1; padding: 10px; border-radius: 6px; border: none; cursor: pointer; }
+  .btn-cancel { background: #eee; }
+  .btn-confirm { background: var(--teal); color: white; }
+  .empty { color: #888; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+  <header>
+    <h1 id="header-title">Protocolo de Callback</h1>
+    <button id="btn-logout">Salir</button>
+  </header>
+
+  <nav id="tabs"></nav>
+
+  <main id="content">
+    <p class="empty">Cargando...</p>
+  </main>
+
+  <div id="modal-root"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    let supabaseClient;
+    let currentAdvisor = null;
+    let activeTab = 'mis-casos';
+
+    const THRESHOLD_PCT = 10;
+
+    async function init() {
+      const res = await fetch('/api/config');
+      const { supabaseUrl, supabaseAnonKey } = await res.json();
+      supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (!session) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      const email = session.user.email;
+      const { data: advisor, error } = await supabaseClient
+        .from('advisors')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (error || !advisor) {
+        document.getElementById('content').innerHTML =
+          '<p class="empty">Tu correo no está vinculado a ningún asesor. Contacta al administrador.</p>';
+        return;
+      }
+
+      currentAdvisor = advisor;
+      document.getElementById('header-title').textContent = `Hola, ${advisor.name}`;
+      renderTabs();
+      renderTab();
+    }
+
+    function renderTabs() {
+      const tabs = [
+        { id: 'mis-casos', label: 'Mis Casos' },
+        { id: 'mi-metrica', label: 'Mi Métrica' },
+      ];
+      if (currentAdvisor.role === 'admin') {
+        tabs.push(
+          { id: 'todos-casos', label: 'Todos los Casos' },
+          { id: 'metricas-equipo', label: 'Métricas por Equipo' },
+          { id: 'alertas', label: 'Alertas' },
+        );
+      }
+      const nav = document.getElementById('tabs');
+      nav.innerHTML = '';
+      tabs.forEach(t => {
+        const btn = document.createElement('button');
+        btn.textContent = t.label;
+        btn.className = t.id === activeTab ? 'active' : '';
+        btn.onclick = () => { activeTab = t.id; renderTabs(); renderTab(); };
+        nav.appendChild(btn);
+      });
+    }
+
+    async function renderTab() {
+      const content = document.getElementById('content');
+      content.innerHTML = '<p class="empty">Cargando...</p>';
+
+      if (activeTab === 'mis-casos') return renderCasos(false);
+      if (activeTab === 'todos-casos') return renderCasos(true);
+      if (activeTab === 'mi-metrica') return renderMetrica(false);
+      if (activeTab === 'metricas-equipo') return renderMetrica(true);
+      if (activeTab === 'alertas') return renderAlertas();
+    }
+
+    async function renderCasos(showAdvisorColumn) {
+      const { data: casos, error } = await supabaseClient
+        .from('missed_calls')
+        .select('*, advisors(name), call_attempts(*)')
+        .order('deadline_at', { ascending: true });
+
+      const content = document.getElementById('content');
+      if (error) {
+        content.innerHTML = `<p class="empty">Error cargando casos: ${error.message}</p>`;
+        return;
+      }
+      if (!casos || casos.length === 0) {
+        content.innerHTML = '<p class="empty">No hay casos registrados.</p>';
+        return;
+      }
+
+      const rows = casos.map(c => {
+        const attempts = c.call_attempts || [];
+        const canLog = attempts.length < 2 && !['Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta'].includes(c.status);
+        return `
+          <tr>
+            ${showAdvisorColumn ? `<td>${c.advisors?.name || '-'}</td>` : ''}
+            <td>${c.client_phone || '-'}</td>
+            <td>${formatTime(c.received_at)}</td>
+            <td>${formatTime(c.deadline_at)}</td>
+            <td><span class="badge ${c.status}">${c.status.replace('_', ' ')}</span></td>
+            <td>${attempts.length}/2</td>
+            <td>${canLog ? `<button class="action" onclick="openAttemptModal('${c.id}')">Registrar intento</button>` : '-'}</td>
+          </tr>
+        `;
+      }).join('');
+
+      content.innerHTML = `
+        <table>
+          <thead><tr>
+            ${showAdvisorColumn ? '<th>Asesor</th>' : ''}
+            <th>Cliente</th><th>Recibido</th><th>Deadline</th><th>Estado</th><th>Intentos</th><th>Acción</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    async function renderMetrica(byTeam) {
+      const { data: rows, error } = await supabaseClient
+        .from('satisfaction_indicator')
+        .select('*');
+
+      const content = document.getElementById('content');
+      if (error) {
+        content.innerHTML = `<p class="empty">Error cargando métricas: ${error.message}</p>`;
+        return;
+      }
+      if (!rows || rows.length === 0) {
+        content.innerHTML = '<p class="empty">Todavía no hay suficientes datos para calcular métricas.</p>';
+        return;
+      }
+
+      let groups;
+      if (byTeam) {
+        groups = {};
+        rows.forEach(r => {
+          const key = r.team || 'Sin equipo';
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(r);
+        });
+      } else {
+        groups = { [currentAdvisor.name]: rows.filter(r => r.advisor_id === currentAdvisor.id) };
+      }
+
+      let html = '';
+      for (const [label, groupRows] of Object.entries(groups)) {
+        const agg = aggregate(groupRows);
+        html += `<h3>${label}</h3>` + renderCards(agg);
+      }
+      content.innerHTML = html || '<p class="empty">Sin datos.</p>';
+    }
+
+    function aggregate(rows) {
+      const total = rows.reduce((s, r) => s + (r.total_casos || 0), 0);
+      const aTiempo = rows.reduce((s, r) => s + (r.a_tiempo || 0), 0);
+      const sinResp = rows.reduce((s, r) => s + (r.sin_respuesta || 0), 0);
+      const discrep = rows.reduce((s, r) => s + (r.discrepancias || 0), 0);
+      const tiempos = rows.map(r => r.tiempo_promedio_respuesta_min).filter(v => v != null);
+      const tiempoProm = tiempos.length ? (tiempos.reduce((a, b) => a + b, 0) / tiempos.length).toFixed(1) : '-';
+
+      return {
+        pctVentana: total ? ((aTiempo / total) * 100).toFixed(1) : '-',
+        tiempoProm,
+        pctSinResp: total ? ((sinResp / total) * 100).toFixed(1) : '0.0',
+        pctDiscrep: total ? ((discrep / total) * 100).toFixed(1) : '0.0',
+      };
+    }
+
+    function renderCards(agg) {
+      const ventanaAlert = agg.pctVentana !== '-' && parseFloat(agg.pctVentana) < (100 - THRESHOLD_PCT);
+      const sinRespAlert = parseFloat(agg.pctSinResp) > THRESHOLD_PCT;
+      const discrepAlert = parseFloat(agg.pctDiscrep) > THRESHOLD_PCT;
+
+      return `
+        <div class="cards">
+          <div class="metric-card ${ventanaAlert ? 'alert' : 'ok'}">
+            <div class="value">${agg.pctVentana}%</div>
+            <div class="label">Dentro de ventana</div>
+          </div>
+          <div class="metric-card">
+            <div class="value">${agg.tiempoProm}</div>
+            <div class="label">Min. promedio respuesta</div>
+          </div>
+          <div class="metric-card ${sinRespAlert ? 'alert' : 'ok'}">
+            <div class="value">${agg.pctSinResp}%</div>
+            <div class="label">Sin respuesta</div>
+          </div>
+          <div class="metric-card ${discrepAlert ? 'alert' : 'ok'}">
+            <div class="value">${agg.pctDiscrep}%</div>
+            <div class="label">Discrepancias</div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function renderAlertas() {
+      const { data: rows } = await supabaseClient.from('satisfaction_indicator').select('*');
+      const content = document.getElementById('content');
+      if (!rows) { content.innerHTML = '<p class="empty">Sin datos.</p>'; return; }
+
+      const alerts = [];
+      rows.forEach(r => {
+        const pctVentana = r.total_casos ? (r.a_tiempo / r.total_casos) * 100 : null;
+        const pctSinResp = r.total_casos ? (r.sin_respuesta / r.total_casos) * 100 : 0;
+        const pctDiscrep = r.total_casos ? (r.discrepancias / r.total_casos) * 100 : 0;
+        if (pctVentana !== null && pctVentana < (100 - THRESHOLD_PCT)) {
+          alerts.push(`${r.advisor_name} (${r.team}): solo ${pctVentana.toFixed(1)}% dentro de ventana`);
+        }
+        if (pctSinResp > THRESHOLD_PCT) {
+          alerts.push(`${r.advisor_name} (${r.team}): ${pctSinResp.toFixed(1)}% de casos Sin_respuesta`);
+        }
+        if (pctDiscrep > THRESHOLD_PCT) {
+          alerts.push(`${r.advisor_name} (${r.team}): ${pctDiscrep.toFixed(1)}% de discrepancias`);
+        }
+      });
+
+      content.innerHTML = alerts.length
+        ? `<ul>${alerts.map(a => `<li>${a}</li>`).join('')}</ul>`
+        : '<p class="empty">Sin alertas activas -- todo dentro de umbral.</p>';
+    }
+
+    function formatTime(iso) {
+      if (!iso) return '-';
+      return new Date(iso).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
+    }
+
+    window.openAttemptModal = function (missedCallId) {
+      document.getElementById('modal-root').innerHTML = `
+        <div class="modal-backdrop">
+          <div class="modal">
+            <h3>Registrar intento</h3>
+            <select id="outcome-select">
+              <option value="contactado">Contactado</option>
+              <option value="buzon_voz">Buzón de voz</option>
+              <option value="no_contesta">No contesta</option>
+              <option value="numero_invalido">Número inválido</option>
+              <option value="cliente_reagendo">Cliente reagendó</option>
+              <option value="otro">Otro</option>
+            </select>
+            <textarea id="notes-input" placeholder="Notas (opcional)"></textarea>
+            <div class="modal-actions">
+              <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+              <button class="btn-confirm" onclick="submitAttempt('${missedCallId}')">Guardar</button>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
+    window.closeModal = function () {
+      document.getElementById('modal-root').innerHTML = '';
+    };
+
+    window.submitAttempt = async function (missedCallId) {
+      const outcome = document.getElementById('outcome-select').value;
+      const notes = document.getElementById('notes-input').value;
+
+      const { data: existing } = await supabaseClient
+        .from('call_attempts')
+        .select('attempt_number')
+        .eq('missed_call_id', missedCallId);
+
+      const attemptNumber = (existing && existing.length > 0) ? 2 : 1;
+
+      const { error } = await supabaseClient.from('call_attempts').insert({
+        missed_call_id: missedCallId,
+        attempt_number: attemptNumber,
+        attempted_at: new Date().toISOString(),
+        outcome,
+        notes: notes || null,
+      });
+
+      if (error) {
+        alert('Error guardando el intento: ' + error.message);
+        return;
+      }
+
+      closeModal();
+      renderTab();
+    };
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await supabaseClient.auth.signOut();
+      window.location.href = '/login.html';
+    });
+
+    init();
+  </script>
+</body>
+</html>
