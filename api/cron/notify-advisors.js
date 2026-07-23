@@ -4,6 +4,8 @@
 // resumen con dos secciones: los clientes que ya recibieron su llamada
 // devuelta en la ultima hora, y los que siguen pendientes (sin importar
 // cuanto tiempo llevan esperando).
+//
+// Solo envia en horario laboral: lunes a viernes, 8am-5pm hora Colombia.
 
 const { getSupabaseAdmin } = require('../../lib/supabase');
 const { sendMail } = require('../../lib/graphMail');
@@ -20,6 +22,23 @@ function formatDateTime(iso) {
     dateStyle: 'short',
     timeStyle: 'short',
   });
+}
+
+function isWithinBusinessHours(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Bogota',
+    weekday: 'short',
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+
+  const weekday = parts.find((p) => p.type === 'weekday').value;
+  const hour = parseInt(parts.find((p) => p.type === 'hour').value, 10);
+
+  const isWeekday = !['Sat', 'Sun'].includes(weekday);
+  const isWorkHour = hour >= 8 && hour < 17;
+
+  return isWeekday && isWorkHour;
 }
 
 function buildEmailHtml({ advisorName, completedRecent, stillPending }) {
@@ -88,12 +107,15 @@ module.exports = async (req, res) => {
     return res.status(401).json({ error: 'unauthorized' });
   }
 
+  const now = new Date();
+  if (!isWithinBusinessHours(now)) {
+    return res.status(200).json({ skipped: 'fuera_de_horario_laboral' });
+  }
+
   const supabase = getSupabaseAdmin();
 
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
 
-  // Trae TODOS los casos relevantes de una vez (completados en la ultima hora
-  // + todos los pendientes/reagendados), ya vienen con su asesor.
   const { data: cases, error } = await supabase
     .from('missed_calls')
     .select('*, advisors(*)')
@@ -106,10 +128,9 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'query_failed' });
   }
 
-  // Agrupa por asesor.
   const byAdvisor = new Map();
   for (const c of cases || []) {
-    if (!c.advisors || !c.advisors.email) continue; // sin email, no se puede notificar
+    if (!c.advisors || !c.advisors.email) continue;
     const key = c.advisors.id;
     if (!byAdvisor.has(key)) {
       byAdvisor.set(key, { advisor: c.advisors, completedRecent: [], stillPending: [] });
@@ -126,7 +147,6 @@ module.exports = async (req, res) => {
   const errors = [];
 
   for (const { advisor, completedRecent, stillPending } of byAdvisor.values()) {
-    // Si no hay nada que reportar para este asesor en este ciclo, se omite el correo.
     if (completedRecent.length === 0 && stillPending.length === 0) continue;
 
     try {
