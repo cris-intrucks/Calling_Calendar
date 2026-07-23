@@ -28,48 +28,18 @@ module.exports = async (req, res) => {
   }
 
   const updates = [];
+  const errors = [];
 
   for (const c of openCases || []) {
-    let attempts = c.call_attempts || [];
-    let attempt1 = attempts.find((a) => a.attempt_number === 1);
-    let attempt2 = attempts.find((a) => a.attempt_number === 2);
+    try {
+      let attempts = c.call_attempts || [];
+      let attempt1 = attempts.find((a) => a.attempt_number === 1);
+      let attempt2 = attempts.find((a) => a.attempt_number === 2);
 
-    // 0. Deteccion proactiva: si el asesor todavia no ha marcado NADA en el
-    //    dashboard, igual revisamos si ya llamo de verdad -- para que el
-    //    caso se cierre solo, sin depender de que se acuerde de marcarlo.
-    if (!attempt1) {
-      const realCall = await getOutboundCallLog({
-        extensionId: c.advisors.ringcentral_extension_id,
-        phoneNumber: c.client_phone,
-        dateFrom: c.received_at,
-      });
-
-      if (realCall) {
-        const { data: inserted } = await supabase
-          .from('call_attempts')
-          .insert({
-            missed_call_id: c.id,
-            attempt_number: 1,
-            attempted_at: realCall.startTime || new Date().toISOString(),
-            outcome: 'contactado',
-            verified_via_api: true,
-            ringcentral_call_id: realCall.id,
-            notes: 'Detectado automaticamente contra el log de RingCentral (asesor no lo habia registrado)',
-          })
-          .select()
-          .single();
-
-        if (inserted) {
-          attempt1 = inserted;
-          attempts = [inserted];
-        }
-      }
-    }
-
-    // 1. Verificar contra el log real si el asesor marcó "contactado" pero
-    //    no quedó verificado aún.
-    for (const attempt of [attempt1, attempt2]) {
-      if (attempt && attempt.outcome === 'contactado' && !attempt.verified_via_api) {
+      // 0. Deteccion proactiva: si el asesor todavia no ha marcado NADA en el
+      //    dashboard, igual revisamos si ya llamo de verdad -- para que el
+      //    caso se cierre solo, sin depender de que se acuerde de marcarlo.
+      if (!attempt1) {
         const realCall = await getOutboundCallLog({
           extensionId: c.advisors.ringcentral_extension_id,
           phoneNumber: c.client_phone,
@@ -77,57 +47,95 @@ module.exports = async (req, res) => {
         });
 
         if (realCall) {
-          await supabase
+          const { data: inserted } = await supabase
             .from('call_attempts')
-            .update({ verified_via_api: true, ringcentral_call_id: realCall.id })
-            .eq('id', attempt.id);
-        } else {
-          await supabase
-            .from('missed_calls')
-            .update({ status: 'Discrepancia' })
-            .eq('id', c.id);
-          updates.push({ id: c.id, new_status: 'Discrepancia' });
-          continue;
+            .insert({
+              missed_call_id: c.id,
+              attempt_number: 1,
+              attempted_at: realCall.startTime || new Date().toISOString(),
+              outcome: 'contactado',
+              verified_via_api: true,
+              ringcentral_call_id: realCall.id,
+              notes: 'Detectado automaticamente contra el log de RingCentral (asesor no lo habia registrado)',
+            })
+            .select()
+            .single();
+
+          if (inserted) {
+            attempt1 = inserted;
+            attempts = [inserted];
+          }
         }
       }
-    }
 
-    // 2. Resolver el status según la regla de 2 intentos mínimos
-    if (attempt2) {
-      const bothFailed =
-        attempt1 &&
-        ['buzon_voz', 'no_contesta', 'numero_invalido'].includes(attempt1.outcome) &&
-        ['buzon_voz', 'no_contesta', 'numero_invalido'].includes(attempt2.outcome);
+      // 1. Verificar contra el log real si el asesor marcó "contactado" pero
+      //    no quedó verificado aún.
+      for (const attempt of [attempt1, attempt2]) {
+        if (attempt && attempt.outcome === 'contactado' && !attempt.verified_via_api) {
+          const realCall = await getOutboundCallLog({
+            extensionId: c.advisors.ringcentral_extension_id,
+            phoneNumber: c.client_phone,
+            dateFrom: c.received_at,
+          });
 
-      if (bothFailed) {
-        await supabase.from('missed_calls').update({ status: 'Sin_respuesta' }).eq('id', c.id);
-        updates.push({ id: c.id, new_status: 'Sin_respuesta' });
-      } else if (attempt2.outcome === 'contactado' || attempt1?.outcome === 'contactado') {
-        const contactAttempt = attempt2.outcome === 'contactado' ? attempt2 : attempt1;
-        const onTime = new Date(contactAttempt.attempted_at) <= new Date(c.deadline_at);
+          if (realCall) {
+            await supabase
+              .from('call_attempts')
+              .update({ verified_via_api: true, ringcentral_call_id: realCall.id })
+              .eq('id', attempt.id);
+          } else {
+            await supabase
+              .from('missed_calls')
+              .update({ status: 'Discrepancia' })
+              .eq('id', c.id);
+            updates.push({ id: c.id, new_status: 'Discrepancia' });
+            continue;
+          }
+        }
+      }
+
+      // 2. Resolver el status según la regla de 2 intentos mínimos
+      if (attempt2) {
+        const bothFailed =
+          attempt1 &&
+          ['buzon_voz', 'no_contesta', 'numero_invalido'].includes(attempt1.outcome) &&
+          ['buzon_voz', 'no_contesta', 'numero_invalido'].includes(attempt2.outcome);
+
+        if (bothFailed) {
+          await supabase.from('missed_calls').update({ status: 'Sin_respuesta' }).eq('id', c.id);
+          updates.push({ id: c.id, new_status: 'Sin_respuesta' });
+        } else if (attempt2.outcome === 'contactado' || attempt1?.outcome === 'contactado') {
+          const contactAttempt = attempt2.outcome === 'contactado' ? attempt2 : attempt1;
+          const onTime = new Date(contactAttempt.attempted_at) <= new Date(c.deadline_at);
+          const newStatus = onTime ? 'Completado_a_tiempo' : 'Completado_tarde';
+          await supabase
+            .from('missed_calls')
+            .update({ status: newStatus, completed_at: contactAttempt.attempted_at })
+            .eq('id', c.id);
+          updates.push({ id: c.id, new_status: newStatus });
+        } else if (attempt1?.outcome === 'cliente_reagendo' || attempt2.outcome === 'cliente_reagendo') {
+          await supabase.from('missed_calls').update({ status: 'Reagendado' }).eq('id', c.id);
+          updates.push({ id: c.id, new_status: 'Reagendado' });
+        }
+      } else if (attempt1?.outcome === 'contactado') {
+        const onTime = new Date(attempt1.attempted_at) <= new Date(c.deadline_at);
         const newStatus = onTime ? 'Completado_a_tiempo' : 'Completado_tarde';
         await supabase
           .from('missed_calls')
-          .update({ status: newStatus, completed_at: contactAttempt.attempted_at })
+          .update({ status: newStatus, completed_at: attempt1.attempted_at })
           .eq('id', c.id);
         updates.push({ id: c.id, new_status: newStatus });
-      } else if (attempt1?.outcome === 'cliente_reagendo' || attempt2.outcome === 'cliente_reagendo') {
+      } else if (attempt1?.outcome === 'cliente_reagendo') {
         await supabase.from('missed_calls').update({ status: 'Reagendado' }).eq('id', c.id);
         updates.push({ id: c.id, new_status: 'Reagendado' });
       }
-    } else if (attempt1?.outcome === 'contactado') {
-      const onTime = new Date(attempt1.attempted_at) <= new Date(c.deadline_at);
-      const newStatus = onTime ? 'Completado_a_tiempo' : 'Completado_tarde';
-      await supabase
-        .from('missed_calls')
-        .update({ status: newStatus, completed_at: attempt1.attempted_at })
-        .eq('id', c.id);
-      updates.push({ id: c.id, new_status: newStatus });
-    } else if (attempt1?.outcome === 'cliente_reagendo') {
-      await supabase.from('missed_calls').update({ status: 'Reagendado' }).eq('id', c.id);
-      updates.push({ id: c.id, new_status: 'Reagendado' });
+    } catch (caseErr) {
+      // Un error en UN caso (ej. permisos de RingCentral para esa extension)
+      // no debe tumbar la revision de todos los demas casos.
+      console.error(`Error procesando caso ${c.id}:`, caseErr.message);
+      errors.push({ id: c.id, error: caseErr.message });
     }
   }
 
-  return res.status(200).json({ processed: (openCases || []).length, updates });
+  return res.status(200).json({ processed: (openCases || []).length, updates, errors });
 };
