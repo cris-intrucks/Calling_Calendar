@@ -3,7 +3,8 @@
 // El corazón de la validación: cruza lo que el asesor reportó (o la falta
 // de reporte) contra el log real de llamadas de RingCentral, y resuelve
 // el status final de cada caso. Esto es lo que hace el indicador confiable
-// en vez de depender de autorreporte.
+// en vez de depender de autorreporte. Ademas, detecta proactivamente si el
+// asesor ya llamo sin haberlo marcado en el dashboard.
 
 const { getSupabaseAdmin } = require('../../lib/supabase');
 const { getOutboundCallLog } = require('../../lib/ringcentral');
@@ -16,7 +17,6 @@ module.exports = async (req, res) => {
 
   const supabase = getSupabaseAdmin();
 
-  // Trae casos abiertos (no resueltos aún) junto con sus intentos y asesor
   const { data: openCases, error } = await supabase
     .from('missed_calls')
     .select('*, advisors(*), call_attempts(*)')
@@ -30,9 +30,41 @@ module.exports = async (req, res) => {
   const updates = [];
 
   for (const c of openCases || []) {
-    const attempts = c.call_attempts || [];
-    const attempt1 = attempts.find((a) => a.attempt_number === 1);
-    const attempt2 = attempts.find((a) => a.attempt_number === 2);
+    let attempts = c.call_attempts || [];
+    let attempt1 = attempts.find((a) => a.attempt_number === 1);
+    let attempt2 = attempts.find((a) => a.attempt_number === 2);
+
+    // 0. Deteccion proactiva: si el asesor todavia no ha marcado NADA en el
+    //    dashboard, igual revisamos si ya llamo de verdad -- para que el
+    //    caso se cierre solo, sin depender de que se acuerde de marcarlo.
+    if (!attempt1) {
+      const realCall = await getOutboundCallLog({
+        extensionId: c.advisors.ringcentral_extension_id,
+        phoneNumber: c.client_phone,
+        dateFrom: c.received_at,
+      });
+
+      if (realCall) {
+        const { data: inserted } = await supabase
+          .from('call_attempts')
+          .insert({
+            missed_call_id: c.id,
+            attempt_number: 1,
+            attempted_at: realCall.startTime || new Date().toISOString(),
+            outcome: 'contactado',
+            verified_via_api: true,
+            ringcentral_call_id: realCall.id,
+            notes: 'Detectado automaticamente contra el log de RingCentral (asesor no lo habia registrado)',
+          })
+          .select()
+          .single();
+
+        if (inserted) {
+          attempt1 = inserted;
+          attempts = [inserted];
+        }
+      }
+    }
 
     // 1. Verificar contra el log real si el asesor marcó "contactado" pero
     //    no quedó verificado aún.
@@ -50,7 +82,6 @@ module.exports = async (req, res) => {
             .update({ verified_via_api: true, ringcentral_call_id: realCall.id })
             .eq('id', attempt.id);
         } else {
-          // El asesor dijo que contactó pero no hay registro real -> discrepancia
           await supabase
             .from('missed_calls')
             .update({ status: 'Discrepancia' })

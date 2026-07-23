@@ -2,11 +2,10 @@ name: Callback Protocol - Scheduled Triggers
 
 on:
   schedule:
-    # GitHub Actions no garantiza el minuto exacto, pero corre cada 5-10 min
-    # de forma confiable -- suficiente para este caso de uso.
     - cron: '*/5 * * * *'   # cada 5 min: intento 1 + verificación
+    - cron: '*/30 * * * *'  # cada 30 min: resumen de pendientes por correo
     - cron: '0 * * * *'     # cada hora: intento 2 (revisa ventana de 2h) + renovación
-  workflow_dispatch: {}       # permite dispararlo manualmente desde GitHub para pruebas
+  workflow_dispatch: {}
 
 jobs:
   reminder-attempt1:
@@ -25,6 +24,15 @@ jobs:
       - name: Llamar /api/cron/verify-calls
         run: |
           curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/verify-calls" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+  pending-summary-email:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '*/30 * * * *' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Llamar /api/cron/pending-summary-email
+        run: |
+          curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/pending-summary-email" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
   reminder-attempt2:
