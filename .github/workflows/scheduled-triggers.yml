@@ -3,8 +3,7 @@ name: Callback Protocol - Scheduled Triggers
 on:
   schedule:
     - cron: '*/5 * * * *'   # cada 5 min: intento 1 + verificación
-    - cron: '*/30 * * * *'  # cada 30 min: resumen de pendientes por correo
-    - cron: '0 * * * *'     # cada hora: intento 2 (revisa ventana de 2h) + renovación
+    - cron: '0 * * * *'     # cada hora: intento 2 + renovación + notificación a asesores
   workflow_dispatch: {}
 
 jobs:
@@ -26,13 +25,13 @@ jobs:
           curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/verify-calls" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
-  pending-summary-email:
+  notify-advisors:
     runs-on: ubuntu-latest
-    if: github.event.schedule == '*/30 * * * *' || github.event_name == 'workflow_dispatch'
+    if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Llamar /api/cron/pending-summary-email
+      - name: Llamar /api/cron/notify-advisors
         run: |
-          curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/pending-summary-email" \
+          curl -sf -X GET "${{ secrets.VERCEL_APP_URL }}/api/cron/notify-advisors" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
 
   reminder-attempt2:
