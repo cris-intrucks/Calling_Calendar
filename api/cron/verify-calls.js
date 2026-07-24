@@ -45,10 +45,11 @@ module.exports = async (req, res) => {
 
   let openCases = [];
   if (priorityIds.length > 0) {
-    const { data: priorityCases, error: priorityError } = await supabase
+   const { data: priorityCases, error: priorityError } = await supabase
       .from('missed_calls')
       .select('*, advisors(*), call_attempts(*)')
-      .in('id', priorityIds);
+      .in('id', priorityIds)
+      .in('status', ['Pendiente', 'Reagendado']);
 
     if (priorityError) {
       console.error(priorityError);
@@ -134,11 +135,18 @@ module.exports = async (req, res) => {
               .update({ verified_via_api: true, ringcentral_call_id: realCall.id })
               .eq('id', attempt.id);
             attempt.verified_via_api = true;
-          } else {
+         } else {
             await supabase
               .from('missed_calls')
               .update({ status: 'Discrepancia' })
               .eq('id', c.id);
+            // Marcamos el intento como verificado (ya se confirmo que NO hay
+            // llamada real) -- si no, este caso seguiria apareciendo en la
+            // consulta de prioridad para siempre, aunque ya este resuelto.
+            await supabase
+              .from('call_attempts')
+              .update({ verified_via_api: true })
+              .eq('id', attempt.id);
             updates.push({ id: c.id, new_status: 'Discrepancia' });
             discrepancyFound = true;
             break;
