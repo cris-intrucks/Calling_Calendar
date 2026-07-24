@@ -17,7 +17,7 @@ const { getSupabaseAdmin } = require('../../lib/supabase');
 const { getOutboundCallLog } = require('../../lib/ringcentral');
 const { isAuthorizedCron } = require('../../lib/cronAuth');
 
-const BATCH_SIZE = 3;
+const BATCH_SIZE = 6;
 
 module.exports = async (req, res) => {
   if (!isAuthorizedCron(req)) {
