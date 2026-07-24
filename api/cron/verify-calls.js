@@ -6,12 +6,11 @@
 // en vez de depender de autorreporte. Ademas, detecta proactivamente si el
 // asesor ya llamo sin haberlo marcado en el dashboard.
 //
-// PRIORIDAD DE PROCESAMIENTO (importante): primero se procesan los casos
-// que YA tienen un intento marcado "contactado" esperando verificacion --
-// esos son baratos y urgentes de cerrar. Solo se usa el cupo restante del
-// lote para la deteccion proactiva de casos sin ningun intento registrado.
-// Esto evita que casos viejos que fallan repetidamente (ej. por rate limit)
-// tapen la fila e impidan que casos nuevos ya marcados se cierren.
+// PRIORIDAD DE PROCESAMIENTO: primero los casos que YA tienen un intento
+// "contactado" esperando verificacion. El cupo restante del lote se llena
+// con deteccion proactiva -- ordenada por "ultima vez revisado" (round-robin),
+// NO por mas antiguo primero, para que un caso viejo sin resolver no tape
+// la fila e impida que casos nuevos tengan su turno.
 
 const { getSupabaseAdmin } = require('../../lib/supabase');
 const { getOutboundCallLog } = require('../../lib/ringcentral');
@@ -26,7 +25,6 @@ module.exports = async (req, res) => {
 
   const supabase = getSupabaseAdmin();
 
-  // 1. Prioridad: casos con un intento "contactado" sin verificar todavia.
   const { data: unverifiedAttempts, error: attemptsError } = await supabase
     .from('call_attempts')
     .select('missed_call_id')
@@ -45,7 +43,7 @@ module.exports = async (req, res) => {
 
   let openCases = [];
   if (priorityIds.length > 0) {
-   const { data: priorityCases, error: priorityError } = await supabase
+    const { data: priorityCases, error: priorityError } = await supabase
       .from('missed_calls')
       .select('*, advisors(*), call_attempts(*)')
       .in('id', priorityIds)
@@ -58,7 +56,6 @@ module.exports = async (req, res) => {
     openCases = priorityCases || [];
   }
 
-  // 2. Llenar el cupo restante con deteccion proactiva (casos sin intentos).
   const remainingSlots = BATCH_SIZE - openCases.length;
   if (remainingSlots > 0) {
     const priorityIdSet = new Set(openCases.map((c) => c.id));
@@ -66,7 +63,7 @@ module.exports = async (req, res) => {
       .from('missed_calls')
       .select('*, advisors(*), call_attempts(*)')
       .in('status', ['Pendiente', 'Reagendado'])
-      .order('received_at', { ascending: true })
+      .order('last_checked_at', { ascending: true, nullsFirst: true })
       .limit(remainingSlots + priorityIdSet.size);
 
     if (candidatesError) {
@@ -135,14 +132,11 @@ module.exports = async (req, res) => {
               .update({ verified_via_api: true, ringcentral_call_id: realCall.id })
               .eq('id', attempt.id);
             attempt.verified_via_api = true;
-         } else {
+          } else {
             await supabase
               .from('missed_calls')
               .update({ status: 'Discrepancia' })
               .eq('id', c.id);
-            // Marcamos el intento como verificado (ya se confirmo que NO hay
-            // llamada real) -- si no, este caso seguiria apareciendo en la
-            // consulta de prioridad para siempre, aunque ya este resuelto.
             await supabase
               .from('call_attempts')
               .update({ verified_via_api: true })
@@ -193,6 +187,11 @@ module.exports = async (req, res) => {
     } catch (caseErr) {
       console.error(`Error procesando caso ${c.id}:`, caseErr.message);
       errors.push({ id: c.id, error: caseErr.message });
+    } finally {
+      await supabase
+        .from('missed_calls')
+        .update({ last_checked_at: new Date().toISOString() })
+        .eq('id', c.id);
     }
   }
 
