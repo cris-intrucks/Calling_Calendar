@@ -430,7 +430,7 @@
 
         const detailHtml = isExpanded ? `
           <tr class="detail-row">
-            <td colspan="${isAdminView ? 8 : 7}">
+            <td colspan="${isAdminView ? 9 : 8}">
               ${attempts.length === 0
                 ? '<span class="no-attempts">Sin intentos registrados todavía.</span>'
                 : attempts.map(a => `
@@ -451,6 +451,7 @@
           <tr class="case-row urg-${urg}" onclick="toggleDetail(event, '${c.id}')">
             ${isAdminView ? `<td>${c.advisors?.name || '-'}</td>` : ''}
             <td class="phone">${c.client_phone || '-'}</td>
+            <td>${c.client_name || '—'}</td>
             <td class="time">${formatTime(c.received_at)}</td>
             <td class="time">${formatTime(c.deadline_at)}</td>
             <td><span class="badge ${c.status}">${c.status.replace('_', ' ')}</span></td>
@@ -467,7 +468,7 @@
         <table>
           <thead><tr>
             ${isAdminView ? '<th>Asesor</th>' : ''}
-            <th>Cliente</th><th>Recibido</th><th>Deadline</th><th>Estado</th><th>Urgencia</th><th>Intentos</th><th>Acción</th>
+            <th>Cliente</th><th>Nombre</th><th>Recibido</th><th>Deadline</th><th>Estado</th><th>Urgencia</th><th>Intentos</th><th>Acción</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
