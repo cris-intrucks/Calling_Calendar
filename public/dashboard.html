@@ -25,6 +25,8 @@
     --green-bg: #e9f5ee;
     --purple: #6a3f9e;
     --purple-bg: #f0eaf9;
+    --cyan: #0e7c86;
+    --cyan-bg: #e3f4f5;
     --radius: 10px;
     --font-display: 'Space Grotesk', sans-serif;
     --font-body: 'Inter', sans-serif;
@@ -172,6 +174,9 @@
   .badge.Sin_respuesta { background: var(--red-bg); color: var(--red); }
   .badge.Discrepancia { background: var(--purple-bg); color: var(--purple); }
   .badge.Reagendado { background: #dcf0f4; color: #0c5460; }
+  .badge.Recontacto_inmediato { background: var(--cyan-bg); color: var(--cyan); }
+  .badge.Recontacto_a_tiempo { background: var(--cyan-bg); color: var(--cyan); }
+  .badge.Recontacto_tarde { background: #fdf0e0; color: #a05a00; }
 
   button.action {
     background: var(--teal); color: white; border: none; padding: 6px 12px;
@@ -256,12 +261,12 @@
     let activeTab = 'mis-casos';
     let refreshTimer = null;
 
-    // Filtros de la vista "Todos los Casos" (solo admin)
     const filters = { team: 'all', advisor: 'all', status: 'all' };
     const expandedRows = new Set();
 
     const THRESHOLD_PCT = 10;
-    const STATUS_LIST = ['Pendiente', 'Reagendado', 'Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta', 'Discrepancia'];
+    const RESOLVED_STATUSES = ['Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta', 'Recontacto_inmediato', 'Recontacto_a_tiempo', 'Recontacto_tarde'];
+    const STATUS_LIST = ['Pendiente', 'Reagendado', 'Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta', 'Discrepancia', 'Recontacto_inmediato', 'Recontacto_a_tiempo', 'Recontacto_tarde'];
     const OUTCOME_LABELS = {
       contactado: 'Contactado',
       buzon_voz: 'Buzón de voz',
@@ -301,9 +306,8 @@
       renderTabs();
       renderTab();
 
-      // Refresca la urgencia (colores/contadores) cada 60s sin recargar todo desde cero
       refreshTimer = setInterval(() => {
-        if (activeTab === 'mis-casos' || activeTab === 'todos-casos') renderTab();
+        if (activeTab === 'mis-casos' || activeTab === 'todos-casos') renderTab(true);
       }, 60000);
     }
 
@@ -330,10 +334,11 @@
       });
     }
 
-    async function renderTab() {
+    async function renderTab(silent = false) {
       const content = document.getElementById('content');
-      content.innerHTML = '<p class="empty">Cargando...</p>';
-
+      if (!silent) {
+        content.innerHTML = '<p class="empty">Cargando...</p>';
+      }
       if (activeTab === 'mis-casos') return renderCasos(false);
       if (activeTab === 'todos-casos') return renderCasos(true);
       if (activeTab === 'mi-metrica') return renderMetrica(false);
@@ -341,12 +346,9 @@
       if (activeTab === 'alertas') return renderAlertas();
     }
 
-    // ---------- CASOS ----------
-
     function urgencyOf(status, deadlineIso) {
       if (status === 'Discrepancia') return 'discrepancia';
-      const resolved = ['Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta'].includes(status);
-      if (resolved) return 'neutral';
+      if (RESOLVED_STATUSES.includes(status)) return 'neutral';
       const msLeft = new Date(deadlineIso) - Date.now();
       if (msLeft <= 0) return 'vencido';
       if (msLeft <= 15 * 60 * 1000) return 'urgente';
@@ -368,7 +370,6 @@
         .select('*, advisors(id, name, team), call_attempts(*)')
         .order('deadline_at', { ascending: true });
 
-      // FIX: "Mis Casos" debe filtrar por el asesor logueado, no traer todos.
       if (!isAdminView) {
         query = query.eq('advisor_id', currentAdvisor.id);
       }
@@ -424,7 +425,7 @@
 
       const rows = visibleCasos.map(c => {
         const attempts = (c.call_attempts || []).sort((a, b) => a.attempt_number - b.attempt_number);
-        const canLog = attempts.length < 2 && !['Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta'].includes(c.status);
+        const canLog = attempts.length < 2 && !RESOLVED_STATUSES.includes(c.status);
         const urg = urgencyOf(c.status, c.deadline_at);
         const isExpanded = expandedRows.has(c.id);
 
@@ -483,13 +484,11 @@
     };
 
     window.toggleDetail = function (event, id) {
-      if (event.target.closest('button')) return; // no interferir con "Registrar intento"
+      if (event.target.closest('button')) return;
       if (expandedRows.has(id)) expandedRows.delete(id);
       else expandedRows.add(id);
       renderTab();
     };
-
-    // ---------- METRICAS ----------
 
     async function renderMetrica(byTeam) {
       const { data: rows, error } = await supabaseClient
@@ -645,9 +644,6 @@
         byAdvisor[r.advisor_id].rows.push(r);
       });
 
-      const ranked = Object.values(byAdvisor)
-        .map(a => ({ name: a.name, agg: weekAgg(a.rows.filter(r => r === a.rows[a.rows.length - 1] ? true : true)) }));
-      // Usamos el agregado de todas las semanas disponibles para cada asesor (histórico del periodo cargado)
       const finalRanked = Object.values(byAdvisor).map(a => ({
         name: a.name,
         agg: weekAgg(a.rows),
@@ -671,8 +667,6 @@
       `;
     }
 
-    // ---------- ALERTAS ----------
-
     async function renderAlertas() {
       const content = document.getElementById('content');
       const now = new Date();
@@ -690,7 +684,6 @@
 
       let html = '';
 
-      // 1. Salud del sistema
       html += '<h3 class="group-title">Salud del sistema</h3>';
       if (health && health.length > 0) {
         const h = health[0];
@@ -710,7 +703,6 @@
         html += '<p class="empty">No hay información de suscripción disponible.</p>';
       }
 
-      // 2. Casos vencidos sin resolver
       html += '<h3 class="group-title">Casos vencidos sin resolver</h3>';
       if (overdue && overdue.length > 0) {
         html += overdue.map(c => {
@@ -726,7 +718,6 @@
         html += '<p class="empty">Sin casos vencidos ahora mismo. 🎉</p>';
       }
 
-      // 3. Alertas de umbral (satisfaction_indicator, última semana por asesor)
       html += '<h3 class="group-title">Desempeño fuera de umbral (última semana)</h3>';
       const thresholdAlerts = [];
       if (satisfactionRows && satisfactionRows.length > 0) {
@@ -761,8 +752,6 @@
       content.innerHTML = html;
     }
 
-    // ---------- UTILIDADES ----------
-
     function formatTime(iso) {
       if (!iso) return '-';
       return new Date(iso).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' });
@@ -773,8 +762,6 @@
       div.textContent = str;
       return div.innerHTML;
     }
-
-    // ---------- MODAL DE INTENTO ----------
 
     window.openAttemptModal = function (missedCallId) {
       document.getElementById('modal-root').innerHTML = `

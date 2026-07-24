@@ -2,14 +2,22 @@
 //
 // Corre cada hora. Por cada asesor con casos relevantes, envía UN correo
 // resumen con dos secciones: los clientes que ya recibieron su llamada
-// devuelta en la ultima hora, y los que siguen pendientes (sin importar
-// cuanto tiempo llevan esperando).
+// devuelta en la ultima hora (incluye resueltos por recontacto del cliente),
+// y los que siguen pendientes.
 //
 // Solo envia en horario laboral: lunes a viernes, 8am-5pm hora Colombia.
 
 const { getSupabaseAdmin } = require('../../lib/supabase');
 const { sendMail } = require('../../lib/graphMail');
 const { isAuthorizedCron } = require('../../lib/cronAuth');
+
+const COMPLETED_STATUSES = [
+  'Completado_a_tiempo',
+  'Completado_tarde',
+  'Recontacto_inmediato',
+  'Recontacto_a_tiempo',
+  'Recontacto_tarde',
+];
 
 function formatPhone(p) {
   return p || 'N/A';
@@ -22,6 +30,17 @@ function formatDateTime(iso) {
     dateStyle: 'short',
     timeStyle: 'short',
   });
+}
+
+function resultLabel(status) {
+  const labels = {
+    Completado_a_tiempo: 'A tiempo (asesor)',
+    Completado_tarde: 'Tarde (asesor)',
+    Recontacto_inmediato: 'Cliente recontactó (inmediato)',
+    Recontacto_a_tiempo: 'Cliente recontactó (a tiempo)',
+    Recontacto_tarde: 'Cliente recontactó (tarde)',
+  };
+  return labels[status] || status;
 }
 
 function isWithinBusinessHours(date) {
@@ -48,12 +67,13 @@ function buildEmailHtml({ advisorName, completedRecent, stillPending }) {
           (c) => `
         <tr>
           <td style="padding:6px 10px;border:1px solid #ddd;">${formatPhone(c.client_phone)}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd;">${c.client_name || '—'}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;">${formatDateTime(c.completed_at)}</td>
-          <td style="padding:6px 10px;border:1px solid #ddd;">${c.status === 'Completado_a_tiempo' ? 'A tiempo' : 'Tarde'}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd;">${resultLabel(c.status)}</td>
         </tr>`
         )
         .join('')
-    : `<tr><td colspan="3" style="padding:6px 10px;border:1px solid #ddd;color:#888;">Sin llamadas completadas en la última hora</td></tr>`;
+    : `<tr><td colspan="4" style="padding:6px 10px;border:1px solid #ddd;color:#888;">Sin llamadas completadas en la última hora</td></tr>`;
 
   const pendingRows = stillPending.length
     ? stillPending
@@ -61,12 +81,13 @@ function buildEmailHtml({ advisorName, completedRecent, stillPending }) {
           (c) => `
         <tr>
           <td style="padding:6px 10px;border:1px solid #ddd;">${formatPhone(c.client_phone)}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd;">${c.client_name || '—'}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;">${formatDateTime(c.received_at)}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;">${formatDateTime(c.deadline_at)}</td>
         </tr>`
         )
         .join('')
-    : `<tr><td colspan="3" style="padding:6px 10px;border:1px solid #ddd;color:#888;">No hay clientes pendientes 🎉</td></tr>`;
+    : `<tr><td colspan="4" style="padding:6px 10px;border:1px solid #ddd;color:#888;">No hay clientes pendientes 🎉</td></tr>`;
 
   return `
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#222;">
@@ -78,6 +99,7 @@ function buildEmailHtml({ advisorName, completedRecent, stillPending }) {
         <thead>
           <tr style="background:#f0f0f0;">
             <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Cliente</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Nombre</th>
             <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Completado</th>
             <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Resultado</th>
           </tr>
@@ -90,6 +112,7 @@ function buildEmailHtml({ advisorName, completedRecent, stillPending }) {
         <thead>
           <tr style="background:#f0f0f0;">
             <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Cliente</th>
+            <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Nombre</th>
             <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Recibida</th>
             <th style="padding:6px 10px;border:1px solid #ddd;text-align:left;">Límite</th>
           </tr>
@@ -115,12 +138,13 @@ module.exports = async (req, res) => {
   const supabase = getSupabaseAdmin();
 
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+  const completedStatusList = COMPLETED_STATUSES.join(',');
 
   const { data: cases, error } = await supabase
     .from('missed_calls')
     .select('*, advisors(*)')
     .or(
-      `and(status.in.(Completado_a_tiempo,Completado_tarde),completed_at.gte.${oneHourAgo}),status.in.(Pendiente,Reagendado)`
+      `and(status.in.(${completedStatusList}),completed_at.gte.${oneHourAgo}),status.in.(Pendiente,Reagendado)`
     );
 
   if (error) {
@@ -136,7 +160,7 @@ module.exports = async (req, res) => {
       byAdvisor.set(key, { advisor: c.advisors, completedRecent: [], stillPending: [] });
     }
     const bucket = byAdvisor.get(key);
-    if (c.status === 'Completado_a_tiempo' || c.status === 'Completado_tarde') {
+    if (COMPLETED_STATUSES.includes(c.status)) {
       bucket.completedRecent.push(c);
     } else {
       bucket.stillPending.push(c);
