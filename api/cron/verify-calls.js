@@ -6,6 +6,12 @@
 // en vez de depender de autorreporte. Ademas, detecta proactivamente si el
 // asesor ya llamo sin haberlo marcado en el dashboard.
 //
+// NUEVO: si un caso lleva 4+ horas sin NINGUN intento (ni manual ni
+// detectado via API), se cierra automaticamente como Vencido_sin_gestion --
+// a diferencia de Sin_respuesta (donde si hubo 2 intentos fallidos), este
+// status indica que nadie hizo nada. Cuenta en contra del indicador del
+// asesor, igual que Sin_respuesta.
+//
 // PRIORIDAD DE PROCESAMIENTO: primero los casos que YA tienen un intento
 // "contactado" esperando verificacion. El cupo restante del lote se llena
 // con deteccion proactiva -- ordenada por "ultima vez revisado" (round-robin),
@@ -17,6 +23,7 @@ const { getOutboundCallLog } = require('../../lib/ringcentral');
 const { isAuthorizedCron } = require('../../lib/cronAuth');
 
 const BATCH_SIZE = 6;
+const NO_ATTEMPT_GRACE_HOURS = 4;
 
 module.exports = async (req, res) => {
   if (!isAuthorizedCron(req)) {
@@ -114,6 +121,21 @@ module.exports = async (req, res) => {
             attempt1 = inserted;
             attempts = [inserted];
           }
+        }
+      }
+
+      // NUEVO: si sigue sin ningun intento (ni manual ni detectado por API)
+      // y ya pasaron 4+ horas desde que se recibio la llamada, se cierra
+      // automaticamente -- nadie gestiono el caso en absoluto.
+      if (!attempt1) {
+        const graceLimit = new Date(Date.now() - NO_ATTEMPT_GRACE_HOURS * 60 * 60 * 1000);
+        if (new Date(c.received_at) <= graceLimit) {
+          await supabase
+            .from('missed_calls')
+            .update({ status: 'Vencido_sin_gestion' })
+            .eq('id', c.id);
+          updates.push({ id: c.id, new_status: 'Vencido_sin_gestion' });
+          continue;
         }
       }
 

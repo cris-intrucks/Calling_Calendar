@@ -177,6 +177,7 @@
   .badge.Recontacto_inmediato { background: var(--cyan-bg); color: var(--cyan); }
   .badge.Recontacto_a_tiempo { background: var(--cyan-bg); color: var(--cyan); }
   .badge.Recontacto_tarde { background: #fdf0e0; color: #a05a00; }
+  .badge.Vencido_sin_gestion { background: var(--red-bg); color: var(--red); }
 
   button.action {
     background: var(--teal); color: white; border: none; padding: 6px 12px;
@@ -265,8 +266,8 @@
     const expandedRows = new Set();
 
     const THRESHOLD_PCT = 10;
-    const RESOLVED_STATUSES = ['Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta', 'Recontacto_inmediato', 'Recontacto_a_tiempo', 'Recontacto_tarde'];
-    const STATUS_LIST = ['Pendiente', 'Reagendado', 'Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta', 'Discrepancia', 'Recontacto_inmediato', 'Recontacto_a_tiempo', 'Recontacto_tarde'];
+    const RESOLVED_STATUSES = ['Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta', 'Recontacto_inmediato', 'Recontacto_a_tiempo', 'Recontacto_tarde', 'Vencido_sin_gestion'];
+    const STATUS_LIST = ['Pendiente', 'Reagendado', 'Completado_a_tiempo', 'Completado_tarde', 'Sin_respuesta', 'Discrepancia', 'Recontacto_inmediato', 'Recontacto_a_tiempo', 'Recontacto_tarde', 'Vencido_sin_gestion'];
     const OUTCOME_LABELS = {
       contactado: 'Contactado',
       buzon_voz: 'Buzón de voz',
