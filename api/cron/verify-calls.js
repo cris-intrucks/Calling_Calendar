@@ -129,7 +129,7 @@ module.exports = async (req, res) => {
       // automaticamente -- nadie gestiono el caso en absoluto.
       if (!attempt1) {
         const graceLimit = new Date(Date.now() - NO_ATTEMPT_GRACE_HOURS * 60 * 60 * 1000);
-        if (new Date(c.received_at) <= graceLimit) {
+        if (new Date(c.deadline_at) <= graceLimit) {
           await supabase
             .from('missed_calls')
             .update({ status: 'Vencido_sin_gestion' })

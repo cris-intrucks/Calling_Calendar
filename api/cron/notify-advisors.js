@@ -43,22 +43,7 @@ function resultLabel(status) {
   return labels[status] || status;
 }
 
-function isWithinBusinessHours(date) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Bogota',
-    weekday: 'short',
-    hour: 'numeric',
-    hourCycle: 'h23',
-  }).formatToParts(date);
-
-  const weekday = parts.find((p) => p.type === 'weekday').value;
-  const hour = parseInt(parts.find((p) => p.type === 'hour').value, 10);
-
-  const isWeekday = !['Sat', 'Sun'].includes(weekday);
-  const isWorkHour = hour >= 8 && hour < 17;
-
-  return isWeekday && isWorkHour;
-}
+const { isWithinBusinessHours } = require('../../lib/businessHours');
 
 function buildEmailHtml({ advisorName, completedRecent, stillPending }) {
   const completedRows = completedRecent.length
