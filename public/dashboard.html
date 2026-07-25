@@ -484,11 +484,13 @@
       renderTab();
     };
 
-    window.toggleDetail = function (event, id) {
+    window.toggleDetail = async function (event, id) {
       if (event.target.closest('button')) return;
+      const scrollY = window.scrollY;
       if (expandedRows.has(id)) expandedRows.delete(id);
       else expandedRows.add(id);
-      renderTab();
+      await renderTab(true);
+      window.scrollTo(0, scrollY);
     };
 
     async function renderMetrica(byTeam) {
@@ -815,8 +817,10 @@
         return;
       }
 
+      const scrollY = window.scrollY;
       closeModal();
-      renderTab();
+      await renderTab(true);
+      window.scrollTo(0, scrollY);
     };
 
     document.getElementById('btn-logout').addEventListener('click', async () => {
